@@ -176,6 +176,21 @@ def create_model_pipeline(model_type: str):
             "quantization": False,
             "is_finetuned": True,
             "base_model": "mistralai/Mistral-Nemo-Instruct-FP8-2407"
+        },
+        "qwen-finetuned": {
+            "path": "./roboreviews-qwen-finetuned",
+            "template": lambda prompt: f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n",
+            "extract_key": "<|im_start|>assistant",
+            "max_tokens": 512,
+            "quantization": False,
+            "is_finetuned": False
+        },
+        "qwen": {
+            "path": "Qwen/Qwen2-7B-Instruct",
+            "template": lambda prompt: f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n",
+            "extract_key": "<|im_start|>assistant",
+            "max_tokens": 1024,
+            "quantization": False
         }
     }
 
