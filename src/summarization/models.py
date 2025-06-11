@@ -306,6 +306,16 @@ def create_model_pipeline(model_type: str):
         pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
         # Keep the creative parameters but ensure stability
         pipe_kwargs["repetition_penalty"] = 1.15  # Slightly more conservative for Gemma
+    elif model_type.lower() in ["qwen", "qwen-finetuned"]:
+        # Fix tokenizer issues for Qwen models
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
+        pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
+        # Ensure MPS device is used in pipeline
+        if use_mps:
+            pipe_kwargs["device"] = "mps"
+            print("Explicitly set pipeline device to MPS for Qwen model")
 
     pipe = pipeline("text-generation", **pipe_kwargs)
 

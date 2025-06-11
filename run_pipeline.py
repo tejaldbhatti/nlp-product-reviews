@@ -24,7 +24,7 @@ def main():
     # mistral-finetuned (7B params) - Fine-tuned for summarization tasks
     # qwen-finetuned  (7B params) - Fine-tuned Qwen model for summarization
 
-    model_type = "mistral"
+    model_type = "qwen-finetuned"
     print(f"Using model: {model_type}")
 
     # Initialize pipeline
