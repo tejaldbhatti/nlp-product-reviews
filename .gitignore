@@ -1,1 +1,13 @@
 data
+.env
+outputs
+results
+fine_tuned_models
+.gitignore
+outputs*
+src/training/__pycache__
+src/summarization/__pycache__
+src/__pycache__
+venv_nlp
+generated_guides/
+roboreviews-mistral-finetuned
