@@ -2,6 +2,7 @@
 Simple CSV-Based Summarization Pipeline
 Run this after the sentiment and category CSV files are ready.
 """
+import os
 
 import json
 from src.summarization.pipeline import SummarizationPipeline
@@ -19,10 +20,10 @@ def main():
     # gemma-2b        (2B params) - Good balance of speed and quality
     # mistral         (7B params) - High quality baseline
     # qwen            (7B params) - Qwen2-7B-Instruct baseline
-    # mistral-finetuned (7B params) - Fine-tuned for summarization tasks
     # qwen-finetuned  (7B params) - Fine-tuned Qwen model for summarization
+    # gemini-pro-flash (API) - Google's Gemini 2.5 Flash via API
 
-    model_type = "qwen"
+    model_type = "gemma-2b"
     print(f"Using model: {model_type}")
 
     # Initialize pipeline
@@ -41,7 +42,6 @@ def main():
         print(f"\nSaving results to {output_dir}/...")
 
         # Create output directory if it doesn't exist
-        import os
         os.makedirs(output_dir, exist_ok=True)
 
         # Save category data as JSON files

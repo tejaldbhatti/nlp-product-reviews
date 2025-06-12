@@ -3,8 +3,10 @@ Review Summarization Models
 Handles local LLM integration for generating product review summaries and articles
 """
 
+import json
 import logging
 import os
+import re
 import time
 from typing import List, Dict
 
@@ -16,7 +18,19 @@ from transformers import (
     BitsAndBytesConfig,
     pipeline
 )
+
+try:
+    from peft import PeftModel
+except ImportError:
+    PeftModel = None
 from .prompts import few_shot_comparison_prompt
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
+
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +41,10 @@ logger = logging.getLogger(__name__)
 
 def create_model_pipeline(model_type: str):
     """Factory function to create the appropriate model pipeline"""
+
+    # Check if this is an API-based model
+    if model_type.lower() == "gemini-pro-flash":
+        return create_gemini_pipeline()
 
     # Get HuggingFace token from environment
     hf_token = os.getenv('HUGGINGFACE_TOKEN')
@@ -49,14 +67,6 @@ def create_model_pipeline(model_type: str):
             "max_tokens": 1024,
             "quantization": False
         },
-        "mistral-finetuned": {
-            "path": "./roboreviews-mistral-finetuned",
-            "template": lambda prompt: f"[INST] {prompt} [/INST]",
-            "extract_key": "[/INST]",
-            "max_tokens": 512,
-            "quantization": False,
-            "is_finetuned": False
-        },
         "qwen": {
             "path": "Qwen/Qwen2-7B-Instruct",
             "template": lambda prompt: (
@@ -68,13 +78,21 @@ def create_model_pipeline(model_type: str):
         },
         "qwen-finetuned": {
             "path": "./roboreviews-qwen-finetuned",
+            "base_model": "Qwen/Qwen2-7B-Instruct",
             "template": lambda prompt: (
                 f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
             ),
             "extract_key": "<|im_start|>assistant",
             "max_tokens": 512,
             "quantization": False,
-            "is_finetuned": False
+            "is_finetuned": True
+        },
+        "gemini-pro-flash": {
+            "type": "api",
+            "provider": "google",
+            "model_name": "gemini-2.5-flash-preview-04-17",
+            "max_tokens": 512,
+            "api_key_env": "GOOGLE_API_KEY"
         }
     }
 
@@ -115,51 +133,33 @@ def create_model_pipeline(model_type: str):
         )
         model_kwargs["quantization_config"] = bnb_config
 
-    # Special settings for specific models
-    if model_type.lower() == "phi3":
-        model_kwargs["attn_implementation"] = "eager"
-    elif model_type.lower() == "gemma":
-        # Add numerical stability for Gemma-3
-        model_kwargs["torch_dtype"] = torch.bfloat16
+    # No special model-specific settings needed for current models
 
-    # Load model (handle fine-tuned models differently)
+    # Load model (handle fine-tuned models)
     if config.get("is_finetuned", False):
-        # Check if this is a DialoGPT or LoRA model
-        if "dialogpt" in model_type:
-            # DialoGPT was saved as complete model
-            model = AutoModelForCausalLM.from_pretrained(
-                config["path"], **model_kwargs)
+        # Load LoRA fine-tuned model using PEFT
+        if PeftModel is None:
+            raise ImportError("peft package not found. Install with: pip install peft")
 
-            # Move to MPS if available
-            if use_mps:
-                model = model.to("mps")
-                print("Moved DialoGPT model to MPS device")
+        # Load base model first
+        base_model_path = config["base_model"]
+        base_model = AutoModelForCausalLM.from_pretrained(
+            base_model_path, **model_kwargs)
 
-            print(f"Loaded fine-tuned DialoGPT model from {config['path']}")
-        else:
-            # Load LoRA fine-tuned model using PEFT
-            from peft import PeftModel
+        # Move base model to MPS if available (before applying adapter)
+        if use_mps:
+            base_model = base_model.to("mps")
+            print("Moved base model to MPS device")
 
-            # Load base model first
-            base_model_path = config.get("base_model", "google/gemma-3-1b-it")
-            base_model = AutoModelForCausalLM.from_pretrained(
-                base_model_path, **model_kwargs)
-
-            # Move base model to MPS if available (before applying adapter)
-            if use_mps:
-                base_model = base_model.to("mps")
-                print("Moved base model to MPS device")
-
-            # Load LoRA adapter (use adapter_path if specified)
-            adapter_path = config.get("adapter_path", config["path"])
-            model = PeftModel.from_pretrained(base_model, adapter_path)
-            print(f"Loaded fine-tuned model from {adapter_path}")
+        # Load LoRA adapter
+        model = PeftModel.from_pretrained(base_model, config["path"])
+        print(f"Loaded fine-tuned model from {config['path']}")
     else:
         # Load regular model
         model = AutoModelForCausalLM.from_pretrained(
             config["path"], **model_kwargs)
 
-        # Move to MPS if available (following notebook approach)
+        # Move to MPS if available
         if use_mps:
             model = model.to("mps")
             print("Moved model to MPS device")
@@ -204,29 +204,40 @@ def create_model_pipeline(model_type: str):
     return pipe, config
 
 
-def generate_text(pipe, template_fn, extract_key: str, prompt: str) -> str:
-    """Generate text using the model pipeline"""
+def generate_text(pipe_or_model, template_fn, extract_key: str,
+                  prompt: str, model_config: dict = None) -> str:
+    """Generate text using the model pipeline or API"""
     try:
-        print(
-            f"    - Starting text generation (prompt length: {len(prompt)} chars)...")
+        print(f"    - Starting text generation "
+              f"(prompt length: {len(prompt)} chars)...")
         start_time = time.time()
 
-        # Format prompt using model-specific template
-        formatted_prompt = template_fn(prompt)
-
-        # Generate text
-        result = pipe(formatted_prompt)
-        generated_text = result[0]["generated_text"]
-
-        # Extract only the generated part
-        if extract_key in generated_text:
-            response = generated_text.split(extract_key)[-1].strip()
+        # Check if this is an API model
+        if model_config and model_config.get("type") == "api":
+            # Use API generation
+            if model_config.get("provider") == "google":
+                response = generate_gemini_text(pipe_or_model, prompt)
+            else:
+                raise ValueError(
+                    f"Unsupported API provider: {model_config.get('provider')}")
         else:
-            response = generated_text.strip()
+            # Use local model pipeline
+            # Format prompt using model-specific template
+            formatted_prompt = template_fn(prompt)
+
+            # Generate text
+            result = pipe_or_model(formatted_prompt)
+            generated_text = result[0]["generated_text"]
+
+            # Extract only the generated part
+            if extract_key in generated_text:
+                response = generated_text.split(extract_key)[-1].strip()
+            else:
+                response = generated_text.strip()
 
         inference_time = time.time() - start_time
-        print(
-            f"    - Text generation completed ({len(response)} chars in {inference_time:.2f}s)")
+        print(f"    - Text generation completed "
+              f"({len(response)} chars in {inference_time:.2f}s)")
         return response
 
     except (RuntimeError, ValueError, OSError) as e:
@@ -245,12 +256,13 @@ def generate_comparison_article(
     # Generate prompt with sample reviews
     prompt = few_shot_comparison_prompt(products, category, sample_reviews)
 
-    # Generate text using pre-loaded pipeline
+    # Generate text using pre-loaded pipeline or API
     raw_text = generate_text(
         model_pipeline,
         model_config["template"],
         model_config["extract_key"],
-        prompt)
+        prompt,
+        model_config)
 
     # Clean up conversational responses (no JSON parsing needed now)
     cleaned_text = clean_recommendation_text(raw_text)
@@ -259,7 +271,6 @@ def generate_comparison_article(
 
 def clean_recommendation_text(text: str) -> str:
     """Clean structured markdown recommendation text"""
-    import re
 
     # Remove conversational patterns that might appear before the structured content
     conversational_patterns = [
@@ -291,10 +302,64 @@ def clean_recommendation_text(text: str) -> str:
     return text
 
 
+def create_gemini_pipeline():
+    """Create Gemini API pipeline"""
+    if genai is None:
+        raise ImportError("google-generativeai package not found. "
+                         "Install with: pip install google-generativeai")
+
+    # Get API key from environment
+    api_key = os.getenv('GOOGLE_API_KEY')
+    if not api_key:
+        raise ValueError("GOOGLE_API_KEY environment variable not found")
+
+    # Configure the API
+    genai.configure(api_key=api_key)
+
+    # Create the model
+    model = genai.GenerativeModel('gemini-2.5-flash-preview-04-17')
+
+    # Return model and config
+    config = {
+        "type": "api",
+        "provider": "google",
+        "model_name": "gemini-2.5-flash-preview-04-17",
+        "max_tokens": 512,
+        "template": lambda prompt: prompt,  # Gemini doesn't need special formatting
+        "extract_key": "",  # No extraction needed for API responses
+    }
+
+    print("Loaded Gemini 2.5 Flash Preview API successfully")
+    return model, config
+
+
+def generate_gemini_text(model, prompt: str) -> str:
+    """Generate text using Gemini API"""
+    try:
+        print(f"    - Starting Gemini API generation "
+              f"(prompt length: {len(prompt)} chars)...")
+        start_time = time.time()
+
+        response = model.generate_content(prompt)
+
+        if response.text:
+            generated_text = response.text.strip()
+        else:
+            generated_text = "Error: No content generated by Gemini API"
+
+        inference_time = time.time() - start_time
+        print(f"    - Gemini API generation completed "
+              f"({len(generated_text)} chars in {inference_time:.2f}s)")
+        return generated_text
+
+    except (ConnectionError, TimeoutError, ValueError) as exc:
+        logger.error("Error generating text with Gemini API: %s", str(exc))
+        print(f"    - ERROR in Gemini API generation: {str(exc)}")
+        return "Error generating content with Gemini API."
+
+
 def clean_generated_text(text: str) -> str:
     """Remove conversational responses, markdown syntax, and clean up generated text"""
-    import json
-    import re
 
     # Try to extract and parse JSON if the text looks like JSON
     if '{' in text and '}' in text:
@@ -328,7 +393,8 @@ def clean_generated_text(text: str) -> str:
                 json_text = re.sub(r'\.total_reviews":', '"total_reviews":', json_text)
 
                 # Fix all quote types and casing issues
-                json_text = re.sub(r'[""''"'']', '"', json_text)
+                quote_pattern = r'[""''"'']'
+                json_text = re.sub(quote_pattern, '"', json_text)
                 json_text = re.sub(r'"Title":', '"title":', json_text)
                 json_text = re.sub(r'"Pros":', '"pros":', json_text)
                 json_text = re.sub(r'"Cons?":', '"cons":', json_text)  # Handle "con" and "cons"
