@@ -122,12 +122,14 @@ class SummarizationPipeline:
         for i, category in enumerate(categories):
             print(f"\n[{i+1}/{len(categories)}] Processing category: {category}")
             category_data = df[df['meta_category'] == category]
-            
+
             # Filter out rows without sentiment data (NaN from left join)
-            text_col = 'review_text' if 'review_text' in category_data.columns else 'reviews.text'
+            text_col = ('review_text' if 'review_text' in category_data.columns
+                       else 'reviews.text')
             category_data_with_reviews = category_data.dropna(subset=[text_col])
-            
-            print(f"  - Found {len(category_data)} total products, {len(category_data_with_reviews)} with reviews for {category}")
+
+            print(f"  - Found {len(category_data)} total products, "
+                  f"{len(category_data_with_reviews)} with reviews for {category}")
 
             if len(category_data_with_reviews) < 3:  # Skip categories with too few reviews
                 print(
@@ -156,11 +158,11 @@ class SummarizationPipeline:
                 # Build structured data ourselves
                 avg_rating = category_data_with_reviews['rating'].mean()
                 sentiment_dist = category_data_with_reviews['sentiment'].value_counts().to_dict()
-                
+
                 # Extract pros and cons from sentiment analysis
                 pros = self.extract_pros_from_reviews(sample_reviews, sentiment_dist)
                 cons = self.extract_cons_from_reviews(sample_reviews)
-                
+
                 # Create structured article data
                 article_data = {
                     'category': category,
@@ -194,11 +196,12 @@ class SummarizationPipeline:
     def extract_pros_from_reviews(self, sample_reviews: Dict, sentiment_dist: Dict) -> list:
         """Extract pros from positive customer reviews"""
         pros = []
-        positive_pct = round((sentiment_dist.get('positive', 0) / sum(sentiment_dist.values())) * 100)
-        
+        positive_pct = round((sentiment_dist.get('positive', 0) /
+                             sum(sentiment_dist.values())) * 100)
+
         # Find common positive themes from sample reviews
         positive_keywords = []
-        for product_name, reviews in sample_reviews.items():
+        for _, reviews in sample_reviews.items():
             for review in reviews:
                 if review['sentiment'] == 'positive':
                     text = review['text'].lower()
@@ -212,32 +215,32 @@ class SummarizationPipeline:
                             positive_keywords.append('user-friendly')
                         if 'battery' in text:
                             positive_keywords.append('good-battery')
-        
+
         # Generate pros based on data
         if positive_pct >= 75:
             pros.append(f"High customer satisfaction ({positive_pct}% positive reviews)")
-        
+
         if 'family-friendly' in positive_keywords:
             pros.append("Customers frequently mention it's great for children and family use")
-        
+
         if 'portable' in positive_keywords:
             pros.append("Praised for portability and travel convenience")
-        
+
         if 'user-friendly' in positive_keywords:
             pros.append("Consistently described as easy to use")
-        
+
         if not pros:  # Fallback
             pros.append(f"Generally positive customer feedback ({positive_pct}% positive)")
-            
+
         return pros[:3]  # Limit to 3 pros
 
     def extract_cons_from_reviews(self, sample_reviews: Dict) -> list:
         """Extract cons from negative/neutral customer reviews"""
         cons = []
-        
+
         # Find common negative themes
         negative_keywords = []
-        for product_name, reviews in sample_reviews.items():
+        for _, reviews in sample_reviews.items():
             for review in reviews:
                 if review['sentiment'] in ['negative', 'neutral']:
                     text = review['text'].lower()
@@ -249,23 +252,23 @@ class SummarizationPipeline:
                         negative_keywords.append('performance')
                     if 'cheap' in text or 'flimsy' in text:
                         negative_keywords.append('build-quality')
-        
+
         # Generate cons based on complaints
         if 'ads' in negative_keywords:
             cons.append("Some users find advertisements disruptive")
-        
+
         if 'senior-issues' in negative_keywords:
             cons.append("May not be ideal for elderly or less tech-savvy users")
-        
+
         if 'performance' in negative_keywords:
             cons.append("Performance issues mentioned in some reviews")
-        
+
         if 'build-quality' in negative_keywords:
             cons.append("Build quality concerns from some customers")
-        
+
         if not cons:  # Fallback
             cons.append("Limited negative feedback available")
-            
+
         return cons[:2]  # Limit to 2 cons
 
     def get_sample_reviews_for_products(self,
@@ -324,7 +327,7 @@ class SummarizationPipeline:
             'positive_ratio',
             'sample_text']
 
-        # Filter products with at least 1 review (lowered from 2)  
+        # Filter products with at least 1 review (lowered from 2)
         product_info = product_info[product_info['review_count'] >= 1]
 
         # Calculate combined score (rating weighted more than sentiment)
@@ -369,4 +372,3 @@ class SummarizationPipeline:
             'sentiment_distribution': df['sentiment'].value_counts().to_dict(),
             'average_rating': df['rating'].mean()
         }
-

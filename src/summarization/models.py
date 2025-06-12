@@ -5,7 +5,6 @@ Handles local LLM integration for generating product review summaries and articl
 
 import logging
 import os
-import re
 import time
 from typing import List, Dict
 
@@ -32,75 +31,15 @@ def create_model_pipeline(model_type: str):
     # Get HuggingFace token from environment
     hf_token = os.getenv('HUGGINGFACE_TOKEN')
 
-    # Model configurations
+    # Model configurations - core models only
     model_configs = {
-        "gemma-finetuned": {
-            "path": "./fine_tuned_models/gemma3-1b-reviews",
-            "template": lambda prompt: (
-                f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-            ),
-            "extract_key": "<start_of_turn>model",
-            "max_tokens": 512,
-            "quantization": False,
-            "is_finetuned": True,
-            "base_model": "google/gemma-3-1b-it"
-        },
-        "mistral-finetuned": {
-            "path": "./fine_tuned_models/mistral_finetuned",
-            "template": lambda prompt: (
-                f"<s>[INST] {prompt} [/INST]"
-            ),
-            "extract_key": "[/INST]",
-            "max_tokens": 512,
-            "quantization": False,
-            "is_finetuned": True
-        },
-        "dialogpt-finetuned": {
-            "path": "./fine_tuned_models/dialogpt-reviews",
-            "template": lambda prompt: f"{prompt}<|endoftext|>",
-            "extract_key": "<|endoftext|>",
-            "max_tokens": 384,
-            "quantization": False,
-            "is_finetuned": True,
-            "base_model": "microsoft/DialoGPT-small"
-        },
-        "gemma-1b-finetuned": {
-            "path": "./fine_tuned_models/gemma-1b-reviews",
+        "gemma-2b": {
+            "path": "google/gemma-2-2b-it",
             "template": lambda prompt: (
                 f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
             ),
             "extract_key": "<start_of_turn>model",
             "max_tokens": 384,
-            "quantization": False,
-            "is_finetuned": True,
-            "base_model": "google/gemma-3-1b-it"
-        },
-        "gemma-2b-finetuned": {
-            "path": "./fine_tuned_models/gemma-2b-reviews",
-            "template": lambda prompt: (
-                f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-            ),
-            "extract_key": "<start_of_turn>model",
-            "max_tokens": 384,
-            "quantization": False,
-            "is_finetuned": True,
-            "base_model": "google/gemma-2-2b-it"
-        },
-        "llama": {
-            "path": "meta-llama/Llama-2-7b-chat-hf",
-            "template": lambda prompt: f"<s>[INST] {prompt} [/INST]",
-            "extract_key": "[/INST]",
-            "max_tokens": 1024,
-            "quantization": True
-        },
-        "llama-1b": {
-            "path": "meta-llama/Llama-3.2-1B-Instruct",
-            "template": lambda prompt: (
-                f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n"
-                f"{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
-            ),
-            "extract_key": "<|start_header_id|>assistant<|end_header_id|>",
-            "max_tokens": 256,
             "quantization": False
         },
         "mistral": {
@@ -118,79 +57,24 @@ def create_model_pipeline(model_type: str):
             "quantization": False,
             "is_finetuned": False
         },
-        "phi3": {
-            "path": "microsoft/Phi-3-mini-4k-instruct",
-            "template": lambda prompt: f"<|user|>\n{prompt}<|end|>\n<|assistant|>\n",
-            "extract_key": "<|assistant|>",
-            "max_tokens": 512,
+        "qwen": {
+            "path": "Qwen/Qwen2-7B-Instruct",
+            "template": lambda prompt: (
+                f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            ),
+            "extract_key": "<|im_start|>assistant",
+            "max_tokens": 1024,
             "quantization": False
-        },
-        "gemma": {
-            "path": "google/gemma-3-4b-it",
-            "template": lambda prompt: (
-                f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-            ),
-            "extract_key": "<start_of_turn>model",
-            "max_tokens": 512,
-            "quantization": False
-        },
-        "gemma-2b": {
-            "path": "google/gemma-2-2b-it",
-            "template": lambda prompt: (
-                f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-            ),
-            "extract_key": "<start_of_turn>model",
-            "max_tokens": 384,
-            "quantization": False
-        },
-        "llama3-finetuned": {
-            "path": "./fine_tuned_models/llama3-8b-reviews",
-            "template": lambda prompt: (
-                f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n"
-                f"{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
-            ),
-            "extract_key": "<|start_header_id|>assistant<|end_header_id|>",
-            "max_tokens": 512,
-            "quantization": False,
-            "is_finetuned": True,
-            "base_model": "meta-llama/Meta-Llama-3-8B-Instruct"
-        },
-        "gemma3-finetuned": {
-            "path": "./fine_tuned_models/gemma3-1b-reviews",
-            "template": lambda prompt: (
-                f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-            ),
-            "extract_key": "<start_of_turn>model",
-            "max_tokens": 512,
-            "quantization": False,
-            "is_finetuned": True,
-            "base_model": "google/gemma-3-1b-it"
-        },
-        "mistral-nemo-finetuned": {
-            "path": "./fine_tuned_models/mistral-nemo-fp8-reviews",
-            "template": lambda prompt: (
-                f"<s>[INST] {prompt} [/INST]"
-            ),
-            "extract_key": "[/INST]",
-            "max_tokens": 512,
-            "quantization": False,
-            "is_finetuned": True,
-            "base_model": "mistralai/Mistral-Nemo-Instruct-FP8-2407"
         },
         "qwen-finetuned": {
             "path": "./roboreviews-qwen-finetuned",
-            "template": lambda prompt: f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n",
+            "template": lambda prompt: (
+                f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            ),
             "extract_key": "<|im_start|>assistant",
             "max_tokens": 512,
             "quantization": False,
             "is_finetuned": False
-        },
-        "qwen": {
-            "path": "Qwen/Qwen2-7B-Instruct",
-            "template": lambda prompt: f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n",
-            "extract_key": "<|im_start|>assistant",
-            "max_tokens": 1024,
-            "quantization": False
         }
     }
 
@@ -206,14 +90,14 @@ def create_model_pipeline(model_type: str):
     # Check for MPS availability (Apple Silicon)
     use_mps = torch.backends.mps.is_available()
     print(f"MPS available: {use_mps}")
-    
+
     # Configure model loading (avoid device_map="auto" for MPS)
     model_kwargs = {
         "torch_dtype": torch.float16,
         "trust_remote_code": True,
         "token": hf_token
     }
-    
+
     # Only use device_map for non-MPS systems
     if not use_mps:
         model_kwargs["device_map"] = "auto"
@@ -245,12 +129,12 @@ def create_model_pipeline(model_type: str):
             # DialoGPT was saved as complete model
             model = AutoModelForCausalLM.from_pretrained(
                 config["path"], **model_kwargs)
-            
+
             # Move to MPS if available
             if use_mps:
                 model = model.to("mps")
                 print("Moved DialoGPT model to MPS device")
-            
+
             print(f"Loaded fine-tuned DialoGPT model from {config['path']}")
         else:
             # Load LoRA fine-tuned model using PEFT
@@ -260,7 +144,7 @@ def create_model_pipeline(model_type: str):
             base_model_path = config.get("base_model", "google/gemma-3-1b-it")
             base_model = AutoModelForCausalLM.from_pretrained(
                 base_model_path, **model_kwargs)
-            
+
             # Move base model to MPS if available (before applying adapter)
             if use_mps:
                 base_model = base_model.to("mps")
@@ -274,7 +158,7 @@ def create_model_pipeline(model_type: str):
         # Load regular model
         model = AutoModelForCausalLM.from_pretrained(
             config["path"], **model_kwargs)
-        
+
         # Move to MPS if available (following notebook approach)
         if use_mps:
             model = model.to("mps")
@@ -293,13 +177,9 @@ def create_model_pipeline(model_type: str):
         "no_repeat_ngram_size": 3    # Prevent repetitive 3-word sequences
     }
 
-    # Add padding token for Phi3 and adjust generation params
-    if model_type.lower() == "phi3":
-        pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
-        # Use smaller max_length to avoid cache issues
-        pipe_kwargs["max_length"] = pipe_kwargs.pop("max_new_tokens", 512) + 100
-    elif model_type.lower() in ["gemma", "gemma-finetuned", "gemma-2b-finetuned"]:
-        # Fix tokenizer and generation issues for Gemma-3
+    # Add model-specific configurations
+    if model_type.lower() == "gemma-2b":
+        # Fix tokenizer and generation issues for Gemma models
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
@@ -380,11 +260,11 @@ def generate_comparison_article(
 def clean_recommendation_text(text: str) -> str:
     """Clean structured markdown recommendation text"""
     import re
-    
+
     # Remove conversational patterns that might appear before the structured content
     conversational_patterns = [
         r"^Okay,?\s*here'?s?\s+.*?[:\n]",
-        r"^Here'?s?\s+.*?[:\n]", 
+        r"^Here'?s?\s+.*?[:\n]",
         r"^Based on.*?analysis,?\s*",
         r"^After analyzing.*?reviews,?\s*",
         r"^Task:\s*.*?\n",
@@ -393,21 +273,21 @@ def clean_recommendation_text(text: str) -> str:
         r"Would you like me to.*$",
         r"Let me know.*$",
     ]
-    
+
     for pattern in conversational_patterns:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
-    
+
     # Clean up markdown formatting issues
     text = re.sub(r'#{4,}', '###', text)  # Max 3 levels of headers
     text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)  # Remove excessive newlines
     text = re.sub(r'^\s+', '', text, flags=re.MULTILINE)  # Remove leading spaces
-    
+
     # Remove any remaining JSON artifacts
     text = re.sub(r'[{}"\[\]]', '', text)
-    
+
     # Clean up and preserve markdown structure
     text = text.strip()
-    
+
     return text
 
 
@@ -415,7 +295,7 @@ def clean_generated_text(text: str) -> str:
     """Remove conversational responses, markdown syntax, and clean up generated text"""
     import json
     import re
-    
+
     # Try to extract and parse JSON if the text looks like JSON
     if '{' in text and '}' in text:
         try:
@@ -424,7 +304,7 @@ def clean_generated_text(text: str) -> str:
             text = re.sub(r'```\s*', '', text)
             text = re.sub(r'`json\s*', '', text)
             text = re.sub(r'`\s*', '', text)
-            
+
             # Extract JSON-like content - find the first complete JSON object
             start = text.find('{')
             if start != -1:
@@ -438,30 +318,30 @@ def clean_generated_text(text: str) -> str:
                         if brace_count == 0:
                             end = i + 1
                             break
-                
+
                 json_text = text[start:end]
                 # Clean up common JSON formatting issues
                 json_text = re.sub(r'\.pros":', '"pros":', json_text)
-                json_text = re.sub(r'\.cons":', '"cons":', json_text) 
+                json_text = re.sub(r'\.cons":', '"cons":', json_text)
                 json_text = re.sub(r'\.recommendation":', '"recommendation":', json_text)
                 json_text = re.sub(r'\.rating":', '"rating":', json_text)
                 json_text = re.sub(r'\.total_reviews":', '"total_reviews":', json_text)
-                
-                # Fix all quote types and casing issues  
-                json_text = re.sub(r'[""''"'']', '"', json_text)  # Fix all smart quotes
+
+                # Fix all quote types and casing issues
+                json_text = re.sub(r'[""''"'']', '"', json_text)
                 json_text = re.sub(r'"Title":', '"title":', json_text)
                 json_text = re.sub(r'"Pros":', '"pros":', json_text)
                 json_text = re.sub(r'"Cons?":', '"cons":', json_text)  # Handle "con" and "cons"
                 json_text = re.sub(r'"Recommendation":', '"recommendation":', json_text)
                 json_text = re.sub(r'"Rating":', '"rating":', json_text)
                 json_text = re.sub(r'"Total[_ ]?[Rr]eviews?":', '"total_reviews":', json_text)
-                
+
                 # Fix field name variations
                 json_text = re.sub(r'"con":', '"cons":', json_text)
                 json_text = re.sub(r'"total_review[s]?":', '"total_reviews":', json_text)
                 json_text = re.sub(r'"total_recipes":', '"total_reviews":', json_text)  # Fix typo
                 json_text = re.sub(r'"total_users":', '"total_reviews":', json_text)  # Fix typo
-                
+
                 # Clean up malformed arrays and extra characters
                 json_text = re.sub(r',\s*""', '', json_text)
                 json_text = re.sub(r'"\s*",\s*""', '"', json_text)
@@ -469,24 +349,24 @@ def clean_generated_text(text: str) -> str:
                 json_text = re.sub(r'：', ':', json_text)  # Fix Chinese colon
                 json_text = re.sub(r'、', ',', json_text)  # Fix Japanese comma
                 json_text = re.sub(r'\\\\', r'\\', json_text)  # Fix double escapes
-                
+
                 # Remove standalone field names that got mixed into content
-                json_text = re.sub(r',\s*"rating"\s*,', ',', json_text)  # Remove rating from arrays
-                json_text = re.sub(r',\s*"rating"\s*\]', ']', json_text)  # Remove rating at end of arrays
-                json_text = re.sub(r'\[\s*"rating"\s*,', '[', json_text)  # Remove rating at start of arrays
-                json_text = re.sub(r'\[\s*"rating"\s*\]', '[]', json_text)  # Remove rating-only arrays
-                json_text = re.sub(r'"rating"\s*:', '"rating":', json_text)  # Fix spacing around rating field
-                json_text = re.sub(r'"rating"\s*[^:,}\]]+', '"rating"', json_text)  # Remove rating followed by non-JSON chars
-                json_text = re.sub(r',\s*"rating"\s*[^:,}\]]+', '', json_text)  # Remove malformed rating entries
-                
+                json_text = re.sub(r',\s*"rating"\s*,', ',', json_text)
+                json_text = re.sub(r',\s*"rating"\s*\]', ']', json_text)
+                json_text = re.sub(r'\[\s*"rating"\s*,', '[', json_text)
+                json_text = re.sub(r'\[\s*"rating"\s*\]', '[]', json_text)
+                json_text = re.sub(r'"rating"\s*:', '"rating":', json_text)
+                json_text = re.sub(r'"rating"\s*[^:,}\]]+', '"rating"', json_text)
+                json_text = re.sub(r',\s*"rating"\s*[^:,}\]]+', '', json_text)
+
                 # Remove trailing characters and fix malformed endings
                 json_text = re.sub(r'\}\s*\]', '}', json_text)  # Remove trailing ]
                 json_text = re.sub(r',\s*\}', '}', json_text)  # Remove trailing comma before }
                 json_text = re.sub(r',\s*\]', ']', json_text)  # Remove trailing comma before ]
-                
+
                 # Ensure proper array format for cons
                 json_text = re.sub(r'"cons":\s*"([^"]+)"', r'"cons": ["\1"]', json_text)
-                
+
                 # Try to parse as JSON
                 parsed = json.loads(json_text)
                 return json.dumps(parsed, indent=2)
@@ -548,4 +428,3 @@ def clean_generated_text(text: str) -> str:
     text = re.sub(r' +', ' ', text)                # Multiple spaces to single space
 
     return text
-

@@ -17,14 +17,12 @@ def main():
 
     # Model options (fastest to slowest, available without gating):
     # gemma-2b        (2B params) - Good balance of speed and quality
-    # phi3            (3.8B params) - Proven performance
-    # mistral         (7B params) - High quality
-    # qwen            (Qwen2-7B-Instruct) - High quality general model
-    # gemma           (Gemma 3 4B params) - Current default
+    # mistral         (7B params) - High quality baseline
+    # qwen            (7B params) - Qwen2-7B-Instruct baseline
     # mistral-finetuned (7B params) - Fine-tuned for summarization tasks
     # qwen-finetuned  (7B params) - Fine-tuned Qwen model for summarization
 
-    model_type = "qwen-finetuned"
+    model_type = "qwen"
     print(f"Using model: {model_type}")
 
     # Initialize pipeline
