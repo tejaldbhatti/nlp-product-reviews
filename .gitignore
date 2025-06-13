@@ -10,3 +10,4 @@ venv_nlp
 generated_guides/
 roboreviews-mistral-finetuned
 roboreviews-qwen-finetuned
+__pycache__
