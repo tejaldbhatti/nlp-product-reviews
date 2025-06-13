@@ -19,7 +19,7 @@ from vaderSentiment.vaderSentiment import ( # For VADER sentiment analysis
     SentimentIntensityAnalyzer
 )
 
-from sklearn.feature_extraction.text import TfidfVectorizer # For converting text to numerical features
+from sklearn.feature_extraction.text import TfidfVectorizer  # For converting text to features
 from sklearn.model_selection import train_test_split # For splitting data into training/testing sets
 from sklearn.metrics import ( # For model evaluation metrics
     confusion_matrix,
@@ -38,7 +38,7 @@ except FileNotFoundError:
     print("Error: '1429_1.csv' not found. "
           "Please ensure the file exists in /content/.")
     sys.exit(1) # Exit the script if the data is not found.
-except Exception as e: # Catching a general exception for unexpected issues.
+except (PermissionError, UnicodeDecodeError, pd.errors.EmptyDataError) as e:
     print(f"An unexpected error occurred during data loading: {e}")
     sys.exit(1)
 

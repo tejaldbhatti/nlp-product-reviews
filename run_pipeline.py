@@ -12,12 +12,11 @@ def clean_data_recursively(obj):
     """Recursively clean data to handle NaN values"""
     if isinstance(obj, dict):
         return {key: clean_data_recursively(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return [clean_data_recursively(item) for item in obj]
-    elif isinstance(obj, float) and math.isnan(obj):
+    if isinstance(obj, float) and math.isnan(obj):
         return None
-    else:
-        return obj
+    return obj
 
 def json_serializer(obj):
     """Custom JSON serializer to handle NaN values"""
@@ -39,7 +38,7 @@ def main():
 
     try:
         results = pipeline.run_pipeline(sentiment_csv, category_csv)
-        print(f"\n=== RESULTS ===")
+        print("\n=== RESULTS ===")
         print(f"Generated {len(results['category_articles'])} category guides")
 
         output_dir = f"deploy/category-pages/outputs/{model_type}"

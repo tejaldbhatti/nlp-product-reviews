@@ -26,7 +26,7 @@ try:
 except FileNotFoundError:
     print("Error: '1429_1.csv' not found. Please ensure the file exists in /content/.")
     sys.exit(1) # Exit the script if the data is not found.
-except Exception as e: # Catching general Exception for unexpected issues
+except (PermissionError, UnicodeDecodeError, pd.errors.EmptyDataError) as e:
     print(f"An unexpected error occurred while loading the data: {e}")
     sys.exit(1)
 
@@ -365,7 +365,7 @@ try:
 except FileNotFoundError:
     print("Error: 'category_cluster_with_id.csv' not found. Please ensure the file exists.")
     sys.exit(1)
-except Exception as e:
+except (PermissionError, UnicodeDecodeError, pd.errors.EmptyDataError) as e:
     print(f"An unexpected error occurred during CSV loading: {e}")
     sys.exit(1)
 
