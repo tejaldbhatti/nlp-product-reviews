@@ -8,7 +8,7 @@ import gc
 from typing import List, Dict
 import pandas as pd
 import torch
-from .models import generate_comparison_article, create_model_pipeline
+from .models import create_model_pipeline
 
 
 class SummarizationPipeline:
@@ -16,9 +16,7 @@ class SummarizationPipeline:
 
     def __init__(self, model_type: str = "gemma"):
         self.model_type = model_type
-        print(f"Loading {model_type} model (this may take a moment)...")
         self.model_pipeline, self.model_config = create_model_pipeline(model_type)
-        print(f"✓ Model {model_type} loaded and ready for inference")
 
     def cleanup(self):
         """Clean up model resources to free memory"""
@@ -37,71 +35,143 @@ class SummarizationPipeline:
                 torch.cuda.empty_cache()
             elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
                 torch.mps.empty_cache()
-
-            print("✓ Model resources cleaned up")
-        except (ImportError, AttributeError, RuntimeError) as e:
-            print(f"Warning: Error during cleanup: {e}")
+        except (ImportError, AttributeError, RuntimeError):
+            pass
 
     def __del__(self):
         """Cleanup when object is destroyed"""
         self.cleanup()
 
-    def load_data(self, sentiment_csv: str, category_csv: str) -> pd.DataFrame:
-        """Load and merge all data from CSV files"""
-        print("Loading data from CSV files...")
+    def load_cluster_data(self) -> pd.DataFrame:
+        """Load aggregated cluster data"""
+        cluster_df = pd.read_csv('results/aggregated_reviews_cluster.csv')
+        cluster_df = cluster_df.loc[:, ~cluster_df.columns.duplicated()]
+        cluster_df = self.clean_product_names(cluster_df)
+        cluster_df = self.deduplicate_products(cluster_df)
 
-        # Load sentiment analysis results (contains review text + sentiment)
-        sentiment_df = pd.read_csv(sentiment_csv)
-        print(f"Loaded {len(sentiment_df)} sentiment predictions "
-              f"with review text")
-
-        # Load category mapping
-        category_df = pd.read_csv(category_csv)
-        print(f"Loaded {len(category_df)} category mappings")
-
-        # Handle different column names for product ID
-        if 'product_id' in sentiment_df.columns:
-            merge_on = 'product_id'
-        elif 'id' in sentiment_df.columns:
-            # Rename id to product_id for consistency
-            sentiment_df = sentiment_df.rename(columns={'id': 'product_id'})
-            merge_on = 'product_id'
-        else:
-            raise ValueError(
-                "No product_id or id column found in sentiment data")
-
-        # Merge categories with sentiment data
-        final_df = category_df.merge(sentiment_df, on=merge_on)
-
-        # Handle different sentiment column names
-        if 'predicted_sentiment_SVC' in final_df.columns and 'sentiment' not in final_df.columns:
-            final_df = final_df.rename(columns={'predicted_sentiment_SVC': 'sentiment'})
-            print("Renamed predicted_sentiment_SVC to sentiment")
-
-        # Handle different column names for category (cluster vs meta_category)
-        if 'cluster' in final_df.columns and 'meta_category' not in final_df.columns:
-            final_df['meta_category'] = final_df['cluster'].map({
+        if 'kmeans_cluster' in cluster_df.columns and 'meta_category' not in cluster_df.columns:
+            cluster_df['meta_category'] = cluster_df['kmeans_cluster'].map({
                 0: 'Fire TV & Streaming Devices',
                 1: 'Charging & Accessories',
                 2: 'Kindle Cases & Covers',
                 3: 'Fire Tablets & Echo Speakers',
                 4: 'E-Readers & Kindle Devices'
             })
-            print("Mapped cluster numbers to category names")
 
-        print(
-            f"Final merged dataset: {len(final_df)} reviews with sentiment and categories")
-        return final_df
+        return cluster_df
+
+    def clean_product_names(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean corrupted product names"""
+        if 'name' in df.columns:
+            df = df.copy()
+            def extract_clean_name(name):
+                if pd.isna(name):
+                    return name
+
+                if ',,\r\n' in name or ',,,' in name:
+                    clean_parts = name.split(',,,')[0].split('\r\n')[0].strip()
+                    if clean_parts and len(clean_parts) > 5:
+                        return clean_parts
+                    parts = name.replace(',,,\r\n', '|||').replace(',,,', '|||').split('|||')
+                    for part in parts:
+                        part = part.strip()
+                        if part and len(part) > 5:
+                            return part
+
+                return name
+
+            df['name'] = df['name'].apply(extract_clean_name)
+            df = df[df['name'].str.len() > 5]
+            df['name'] = df['name'].str.replace(r'^"', '', regex=True)
+            df['name'] = df['name'].str.replace(r'"$', '', regex=True)
+            df['name'] = df['name'].str.strip()
+            df['name'] = df['name'].str.replace(r',+$', '', regex=True)
+            def clean_remaining_issues(name):
+                if pd.isna(name):
+                    return name
+                if ',,' in name:
+                    parts = [part.strip() for part in name.split(',') if part.strip()]
+                    return parts[0] if parts else name
+                return name
+
+            df['name'] = df['name'].apply(clean_remaining_issues)
+
+        return df
+
+    def deduplicate_products(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Resolve products appearing in multiple clusters"""
+        return df.drop_duplicates(subset=['product_id'], keep='first')
+
+
+    def extract_quotable_reviews(self, products: List[Dict], sentiment_df: pd.DataFrame) -> Dict:
+        """Link products to individual review quotes via product_id"""
+        quotes_by_product = {}
+
+        for product in products:
+            product_id = product['product_id']
+            product_reviews = sentiment_df[sentiment_df['product_id'] == product_id]
+
+            if len(product_reviews) == 0:
+                continue
+
+            positive_reviews = product_reviews[
+                (product_reviews['predicted_sentiment_SVC'] == 'positive') &
+                (product_reviews['rating'] >= 4.0)
+            ]
+
+            negative_reviews = product_reviews[
+                (product_reviews['predicted_sentiment_SVC'] == 'negative') &
+                ((product_reviews['rating'] <= 3.0) |
+                 (product_reviews['rating'].isna()))
+            ]
+            def filter_by_length(reviews_df):
+                text_col = 'reviews.text' if 'reviews.text' in reviews_df.columns else 'review_text'
+                if text_col in reviews_df.columns:
+                    return reviews_df[
+                        (reviews_df[text_col].str.len() >= 20) &
+                        (reviews_df[text_col].str.len() <= 500)
+                    ]
+                return reviews_df
+
+            positive_filtered = filter_by_length(positive_reviews)
+            negative_filtered = filter_by_length(negative_reviews)
+            positive_quotes = []
+            if len(positive_filtered) > 0:
+                top_positive = positive_filtered.nlargest(2, 'rating')
+                for _, review in top_positive.iterrows():
+                    text_col = 'reviews.text' if 'reviews.text' in review else 'review_text'
+                    positive_quotes.append({
+                        'text': review[text_col],
+                        'rating': review['rating']
+                    })
+
+            warning_quotes = []
+            if len(negative_filtered) > 0:
+                bottom_negative = negative_filtered.nsmallest(2, 'rating')
+                for _, review in bottom_negative.iterrows():
+                    text_col = 'reviews.text' if 'reviews.text' in review else 'review_text'
+                    warning_quotes.append({
+                        'text': review[text_col],
+                        'rating': review['rating']
+                    })
+
+            quotes_by_product[product_id] = {
+                'positive_quotes': positive_quotes,
+                'warning_quotes': warning_quotes
+            }
+
+        return quotes_by_product
+
 
     def run_pipeline(self, sentiment_csv: str,
-                     category_csv: str) -> Dict[str, Dict]:
+                     _category_csv: str) -> Dict[str, Dict]:
         """Run the complete pipeline with AI content generation"""
 
-        # Load and merge data
-        df = self.load_data(sentiment_csv, category_csv)
+        # Load cluster data using new approach
+        df = self.load_cluster_data()
 
-        # Generate category articles with AI content
-        category_articles = self.generate_category_articles(df)
+        sentiment_df = pd.read_csv(sentiment_csv)
+        category_articles = self.generate_category_articles(df, sentiment_df)
 
         # Generate summary statistics
         stats = self.generate_stats(df)
@@ -111,264 +181,599 @@ class SummarizationPipeline:
             'stats': stats
         }
 
-    def generate_category_articles(self, df: pd.DataFrame) -> Dict[str, str]:
+    def generate_category_articles(self, df: pd.DataFrame, sentiment_df: pd.DataFrame) -> Dict[str, str]:
         """Generate category articles with AI-generated content"""
         articles = {}
-
-        # Group by meta-category
         categories = df['meta_category'].dropna().unique()
-        print(f"Found {len(categories)} categories: {list(categories)}")
 
-        for i, category in enumerate(categories):
-            print(f"\n[{i+1}/{len(categories)}] Processing category: {category}")
+        for category in categories:
             category_data = df[df['meta_category'] == category]
 
-            # Filter out rows without sentiment data (NaN from left join)
-            text_col = ('review_text' if 'review_text' in category_data.columns
-                       else 'reviews.text')
-            category_data_with_reviews = category_data.dropna(subset=[text_col])
-
-            print(f"  - Found {len(category_data)} total products, "
-                  f"{len(category_data_with_reviews)} with reviews for {category}")
-
-            if len(category_data_with_reviews) < 3:  # Skip categories with too few reviews
-                print(
-                    f"  - Skipping {category} (too few reviews: {len(category_data)})")
+            if len(category_data) < 1:
                 continue
 
-            print(f"  - Getting top products for {category}...")
-            # Get top 3 products by average rating and review count (use data with reviews)
-            top_products = self.get_top_products_for_category(category_data_with_reviews)
-            print(f"  - Found {len(top_products)} top products")
+            enhanced_products = self.get_enhanced_products_for_category(category_data)
 
-            if len(top_products) >= 1:
-                print(f"  - Getting sample reviews for {category}...")
-                # Get sample reviews for quote extraction
-                sample_reviews = self.get_sample_reviews_for_products(
-                    category_data_with_reviews, top_products)
+            if len(enhanced_products['top_picks']) >= 1:
+                all_products = enhanced_products['top_picks'] + enhanced_products['avoid_products']
+                quotes = self.extract_quotable_reviews(all_products, sentiment_df)
+                sample_reviews = self.get_sample_reviews_from_sentiment_data(
+                    sentiment_df, all_products)
 
-                print(
-                    f"  - Generating AI content for {category} (this may take a while)...")
-                # Generate AI content with sample reviews
                 ai_start = time.time()
-                ai_summary = generate_comparison_article(
-                    self.model_pipeline, self.model_config, top_products, category, sample_reviews)
+                customer_insights = self.extract_customer_insights_for_prompts(
+                    sample_reviews, enhanced_products)
+                customer_insights['top_product_names'] = [
+                    p['name'] for p in enhanced_products['top_picks'][:2]]
+                customer_insights['avoid_product_names'] = [
+                    p['name'] for p in enhanced_products.get('avoid_products', [])[:1]]
+
+                model_limits = self.get_model_prompt_limits()
+
+                if model_limits['use_chunked']:
+                    review_sections = self.generate_comprehensive_review(
+                        category, customer_insights)
+                    comprehensive_content = self.assemble_reviewer_content(
+                        review_sections, category)
+                    from .models import clean_recommendation_text
+                    comprehensive_content = clean_recommendation_text(comprehensive_content)
+                else:
+                    comprehensive_content = self.generate_unified_review(
+                        category, customer_insights)
+                    from .models import clean_recommendation_text
+                    comprehensive_content = clean_recommendation_text(comprehensive_content)
+
+                focused_content = {'category_summary': comprehensive_content}
                 ai_time = time.time() - ai_start
+                ai_summary = focused_content.get(
+                    'category_summary', f'{category} products analyzed from customer reviews.')
 
-                # Build structured data ourselves
-                avg_rating = category_data_with_reviews['rating'].mean()
-                sentiment_dist = category_data_with_reviews['sentiment'].value_counts().to_dict()
+                avg_rating = category_data['avg_rating'].mean()
+                total_reviews = (
+                    category_data['positive_review_count'].sum() +
+                    category_data['negative_review_count'].sum() +
+                    category_data['neutral_review_count'].sum())
 
-                # Extract pros and cons from sentiment analysis
-                pros = self.extract_pros_from_reviews(sample_reviews, sentiment_dist)
-                cons = self.extract_cons_from_reviews(sample_reviews)
+                sentiment_dist = {
+                    'positive': category_data['positive_review_count'].sum(),
+                    'negative': category_data['negative_review_count'].sum(),
+                    'neutral': category_data['neutral_review_count'].sum()}
 
-                # Create structured article data
+                pros, cons = self.extract_insights_from_reviewer_content(
+                    ai_summary, sentiment_dist)
+
+                # Create enhanced structured article data
                 article_data = {
                     'category': category,
-                    'total_reviews': len(category_data_with_reviews),
-                    'top_products': top_products,
+                    'metadata': {
+                        'total_products': len(category_data),
+                        'total_reviews': int(total_reviews),
+                        'avg_rating': round(avg_rating, 2),
+                        'generation_info': {
+                            'generation_time': ai_time,
+                            'model_used': self.model_type,
+                            'content_type': 'enhanced_reviewer_style'
+                        }
+                    },
+                    'recommendations': {
+                        'top_picks': [],
+                        'avoid_products': []
+                    },
+                    'customer_insights': {
+                        'why_customers_choose': ai_summary,  # Now contains comprehensive reviewer content
+                        'main_concerns': 'Analyzed from customer feedback patterns',
+                        'positive_themes': pros,
+                        'negative_themes': cons
+                    },
+                    # Legacy fields for compatibility
+                    'top_products': enhanced_products['top_picks'],
                     'sample_reviews': sample_reviews,
                     'stats': {
                         'avg_rating': avg_rating,
                         'sentiment_distribution': sentiment_dist
                     },
                     'buying_guide': {
-                        'title': f"{category} Buying Guide - Expert Analysis",
+                        'title': f"{category} Buying Guide - Expert Review Analysis",
                         'pros': pros,
                         'cons': cons,
-                        'recommendation': ai_summary,  # Just the LLM-generated recommendation text
+                        'recommendation': ai_summary,  # Full reviewer content
                         'rating': round(avg_rating, 1),
-                        'total_reviews': len(category_data_with_reviews),
+                        'total_reviews': int(total_reviews),
                         'generation_time': ai_time,
-                        'model_used': self.model_type
-                    }}
+                        'model_used': self.model_type,
+                        'content_style': 'comprehensive_reviewer'
+                    }
+                }
+
+                # Add enhanced product data with quotes (no extra LLM-generated content)
+                for product in enhanced_products['top_picks']:
+                    product_quotes = quotes.get(product['product_id'], {'positive_quotes': [], 'warning_quotes': []})
+
+                    article_data['recommendations']['top_picks'].append({
+                        'product_id': product['product_id'],
+                        'name': product['name'],
+                        'rating': float(product['avg_rating']) if not pd.isna(product['avg_rating']) else 3.0,
+                        'review_count': product['review_count'],
+                        'positive_quotes': product_quotes['positive_quotes']
+                    })
+
+                for product in enhanced_products['avoid_products']:
+                    product_quotes = quotes.get(product['product_id'], {'positive_quotes': [], 'warning_quotes': []})
+                    article_data['recommendations']['avoid_products'].append({
+                        'product_id': product['product_id'],
+                        'name': product['name'],
+                        'rating': float(product['avg_rating']) if not pd.isna(product['avg_rating']) else 3.0,
+                        'review_count': product['review_count'],
+                        'why_avoid': (f"Lower customer satisfaction: "
+                                    f"{float(product['avg_rating']) if not pd.isna(product['avg_rating']) else 3.0:.1f}/5 rating"),
+                        'warning_quotes': product_quotes['warning_quotes']
+                    })
 
                 articles[category] = article_data
-                print(f"  - Generated AI content for {category} category "
-                      f"({len(ai_summary)} chars in {ai_time:.2f}s)")
-            else:
-                print(
-                    f"  - Skipping {category} (insufficient top products: {len(top_products)})")
 
         return articles
 
-    def extract_pros_from_reviews(self, sample_reviews: Dict, sentiment_dist: Dict) -> list:
-        """Extract pros from positive customer reviews"""
+    def extract_insights_from_reviewer_content(self, reviewer_content: str, sentiment_dist: Dict) -> tuple:
+        """Extract pros and cons from comprehensive reviewer content"""
         pros = []
-        positive_pct = round((sentiment_dist.get('positive', 0) /
-                             sum(sentiment_dist.values())) * 100)
-
-        # Find common positive themes from sample reviews
-        positive_keywords = []
-        for _, reviews in sample_reviews.items():
-            for review in reviews:
-                if review['sentiment'] == 'positive':
-                    text = review['text'].lower()
-                    # Look for positive indicators
-                    if 'love' in text or 'great' in text:
-                        if 'children' in text or 'kids' in text:
-                            positive_keywords.append('family-friendly')
-                        if 'travel' in text or 'portable' in text:
-                            positive_keywords.append('portable')
-                        if 'easy' in text:
-                            positive_keywords.append('user-friendly')
-                        if 'battery' in text:
-                            positive_keywords.append('good-battery')
-
-        # Generate pros based on data
-        if positive_pct >= 75:
-            pros.append(f"High customer satisfaction ({positive_pct}% positive reviews)")
-
-        if 'family-friendly' in positive_keywords:
-            pros.append("Customers frequently mention it's great for children and family use")
-
-        if 'portable' in positive_keywords:
-            pros.append("Praised for portability and travel convenience")
-
-        if 'user-friendly' in positive_keywords:
-            pros.append("Consistently described as easy to use")
-
-        if not pros:  # Fallback
-            pros.append(f"Generally positive customer feedback ({positive_pct}% positive)")
-
-        return pros[:3]  # Limit to 3 pros
-
-    def extract_cons_from_reviews(self, sample_reviews: Dict) -> list:
-        """Extract cons from negative/neutral customer reviews"""
         cons = []
 
-        # Find common negative themes
-        negative_keywords = []
-        for _, reviews in sample_reviews.items():
-            for review in reviews:
-                if review['sentiment'] in ['negative', 'neutral']:
-                    text = review['text'].lower()
-                    if 'ads' in text or 'advertisement' in text:
-                        negative_keywords.append('ads')
-                    if 'elderly' in text or 'senior' in text:
-                        negative_keywords.append('senior-issues')
-                    if 'slow' in text or 'laggy' in text:
-                        negative_keywords.append('performance')
-                    if 'cheap' in text or 'flimsy' in text:
-                        negative_keywords.append('build-quality')
+        # Extract from reviewer content sections
+        content_lower = reviewer_content.lower()
 
-        # Generate cons based on complaints
-        if 'ads' in negative_keywords:
-            cons.append("Some users find advertisements disruptive")
+        # Look for positive themes in "What's Working Really Well" section
+        if 'working really well' in content_lower or 'working well' in content_lower:
+            if 'easy' in content_lower or 'intuitive' in content_lower:
+                pros.append("User-friendly design consistently praised by customers")
+            if 'family' in content_lower or 'kids' in content_lower or 'children' in content_lower:
+                pros.append("Excellent for family use and children")
+            if 'sound' in content_lower or 'audio' in content_lower:
+                pros.append("Strong audio performance for the price point")
+            if 'value' in content_lower or 'price' in content_lower:
+                pros.append("Good value proposition in the market")
 
-        if 'senior-issues' in negative_keywords:
-            cons.append("May not be ideal for elderly or less tech-savvy users")
+        # Look for negative themes in "Red Flags" section
+        if 'red flags' in content_lower or 'concerns' in content_lower:
+            if 'durability' in content_lower or 'build' in content_lower:
+                cons.append("Build quality and durability concerns reported")
+            if 'ads' in content_lower or 'advertisement' in content_lower:
+                cons.append("Advertisements can be disruptive for some users")
+            if 'battery' in content_lower:
+                cons.append("Battery life may not meet expectations")
+            if 'slow' in content_lower or 'performance' in content_lower:
+                cons.append("Performance issues mentioned in feedback")
 
-        if 'performance' in negative_keywords:
-            cons.append("Performance issues mentioned in some reviews")
+        # Add sentiment-based fallbacks if we didn't extract enough
+        total_sentiment = sum(sentiment_dist.values())
+        positive_pct = round(
+            (sentiment_dist.get('positive', 0) / total_sentiment) * 100
+        ) if total_sentiment > 0 else 0
 
-        if 'build-quality' in negative_keywords:
-            cons.append("Build quality concerns from some customers")
+        if len(pros) == 0:
+            if positive_pct >= 70:
+                pros.append(f"High customer satisfaction ({positive_pct}% positive feedback)")
+            pros.append("Generally positive customer experiences reported")
 
-        if not cons:  # Fallback
-            cons.append("Limited negative feedback available")
+        if len(cons) == 0:
+            cons.append("Some quality and performance concerns noted")
 
-        return cons[:2]  # Limit to 2 cons
+        return pros[:3], cons[:2]  # Limit results
 
-    def get_sample_reviews_for_products(self,
-                                        category_data: pd.DataFrame,
-                                        top_products: List[Dict]) -> Dict[str,
-                                                                          List[Dict]]:
-        """Get sample reviews for each top product to provide quotes for LLM"""
+
+
+    def get_sample_reviews_from_sentiment_data(
+            self, sentiment_df: pd.DataFrame, top_products: List[Dict]
+    ) -> Dict[str, List[Dict]]:
+        """Get sample reviews from sentiment data for each top product"""
         sample_reviews = {}
 
         for product in top_products:
-            product_reviews = category_data[category_data['product_id']
-                                            == product['product_id']]
+            product_id = product['product_id']
+            product_reviews = sentiment_df[sentiment_df['product_id'] == product_id]
+
+            if len(product_reviews) == 0:
+                sample_reviews[product['name']] = []
+                continue
 
             # Get a mix of positive, negative, and neutral reviews
-            positive_reviews = product_reviews[product_reviews['sentiment'] == 'positive'].head(
-                3)
-            negative_reviews = product_reviews[product_reviews['sentiment'] == 'negative'].head(
-                2)
-            neutral_reviews = product_reviews[product_reviews['sentiment'] == 'neutral'].head(
-                1)
+            positive_reviews = product_reviews[
+                product_reviews['predicted_sentiment_SVC'] == 'positive'].head(3)
+            negative_reviews = product_reviews[
+                product_reviews['predicted_sentiment_SVC'] == 'negative'].head(2)
+            neutral_reviews = product_reviews[
+                product_reviews['predicted_sentiment_SVC'] == 'neutral'].head(1)
 
-            # Combine and convert to list of dicts
+            # Combine reviews
             all_reviews = pd.concat(
                 [positive_reviews, negative_reviews, neutral_reviews])
 
-            # Handle different column name formats
-            text_col = 'review_text' if 'review_text' in all_reviews.columns else 'reviews.text'
-            rating_col = 'rating' if 'rating' in all_reviews.columns else 'reviews.rating'
+            if len(all_reviews) == 0:
+                sample_reviews[product['name']] = []
+                continue
 
-            sample_reviews[product['name']] = all_reviews[
-                [text_col, rating_col, 'sentiment']
-            ].rename(columns={text_col: 'text', rating_col: 'rating'}).to_dict('records')
+            # Convert to format expected by LLM
+            reviews_list = []
+            for _, review in all_reviews.iterrows():
+                reviews_list.append({
+                    'text': review['reviews.text'],
+                    'rating': review['rating'],
+                    'sentiment': review['predicted_sentiment_SVC'],
+                    'product_id': review['product_id']
+                })
+
+            sample_reviews[product['name']] = reviews_list
 
         return sample_reviews
 
-    def get_top_products_for_category(
-            self, category_data: pd.DataFrame) -> List[Dict]:
-        """Get top 3 products for a category based on ratings and sentiment"""
+    def generate_single_prompt(self, prompt: str) -> str:
+        """Generate text from a single focused prompt"""
+        from .models import generate_text
 
-        # Group by product and calculate metrics
-        # Handle different column name formats
-        rating_col = 'rating' if 'rating' in category_data.columns else 'reviews.rating'
-        text_col = 'review_text' if 'review_text' in category_data.columns else 'reviews.text'
+        try:
+            result = generate_text(
+                self.model_pipeline,
+                self.model_config["template"],
+                self.model_config["extract_key"],
+                prompt,
+                self.model_config
+            )
+            return result.strip()
+        except Exception:
+            return "Content generation failed"
 
-        # Get product names for each product_id
-        product_info = category_data.groupby('product_id').agg({
-            rating_col: ['mean', 'count'],
-            'sentiment': lambda x: (x == 'positive').sum() / len(x),
-            text_col: 'first'  # Get first review text to extract product name if needed
-        }).round(2)
+    def get_reviewer_context(self, category: str) -> str:
+        """Get category-specific reviewer expertise context"""
+        contexts = {
+            'Fire Tablets & Echo Speakers': 'smart home and family tech expert',
+            'E-Readers & Kindle Devices': 'digital reading and e-ink specialist',
+            'Charging & Accessories': 'mobile accessories and power solutions reviewer',
+            'Kindle Cases & Covers': 'device protection and accessory expert',
+            'Fire TV & Streaming Devices': 'streaming media and cord-cutting specialist'
+        }
+        return contexts.get(category, 'consumer electronics expert')
 
-        # Flatten column names
-        product_info.columns = [
-            'avg_rating',
-            'review_count',
-            'positive_ratio',
-            'sample_text']
+    def get_model_prompt_limits(self) -> Dict:
+        """Get token limits based on model type for adaptive generation"""
+        model_limits = {
+            'gemma-2b': {
+                'opening': 150,
+                'strengths': 200,
+                'concerns': 200,
+                'recommendation': 150,
+                'use_chunked': True
+            },
+            'gemma': {  # Alias for gemma-2b
+                'opening': 150,
+                'strengths': 200,
+                'concerns': 200,
+                'recommendation': 150,
+                'use_chunked': True
+            },
+            'mistral': {
+                'opening': 200,
+                'strengths': 300,
+                'concerns': 300,
+                'recommendation': 200,
+                'use_chunked': False
+            },
+            'qwen': {
+                'opening': 200,
+                'strengths': 300,
+                'concerns': 300,
+                'recommendation': 200,
+                'use_chunked': False
+            },
+            'qwen-finetuned': {
+                'opening': 180,
+                'strengths': 250,
+                'concerns': 250,
+                'recommendation': 180,
+                'use_chunked': True
+            },
+            'gemini-pro-flash': {
+                'opening': 300,
+                'strengths': 400,
+                'concerns': 400,
+                'recommendation': 300,
+                'use_chunked': False
+            }
+        }
 
-        # Filter products with at least 1 review (lowered from 2)
-        product_info = product_info[product_info['review_count'] >= 1]
+        # Return limits for current model, with fallback
+        return model_limits.get(self.model_type.lower(), model_limits['mistral'])
 
-        # Calculate combined score (rating weighted more than sentiment)
-        product_info['combined_score'] = (
-            product_info['avg_rating'] * 0.7 +
-            product_info['positive_ratio'] * 5 * 0.3
-        )
+    def generate_comprehensive_review(self, category: str, insights: Dict) -> Dict:
+        """Generate review content in manageable chunks for small LLMs"""
+        review_sections = {}
 
-        # Sort by combined score and take top 3
-        top_products_data = product_info.sort_values(
-            'combined_score', ascending=False).head(3)
+        # Section 1: Opening hook (small prompt)
+        opening_prompt = f"""Write 2-3 sentences introducing {category} based on these \
+customer feedback trends. Do not include phrases like "Okay" or "Here is". \
+Start directly with the content.
 
-        # Convert to list of dicts for LLM processing
-        result = []
-        for product_id, metrics in top_products_data.iterrows():
-            # Get actual product name from the category data (now includes
-            # 'name' column)
-            product_name_row = category_data[category_data['product_id'] == product_id]
-            if 'name' in category_data.columns and len(product_name_row) > 0:
-                product_name = product_name_row['name'].iloc[0]
+POSITIVE: {insights['positive_examples']}
+NEGATIVE: {insights['negative_examples']}
+
+Write like a tech blogger setting the scene for readers."""
+        review_sections['opening'] = self.generate_single_prompt(opening_prompt)
+
+        # Section 2: Strengths analysis (focused prompt)
+        strengths_prompt = f"""Based on positive customer feedback: \
+{insights['positive_examples']}
+
+Write one paragraph explaining what's working well in {category}. \
+Mention specific benefits customers report. Be conversational and specific. \
+Do not start with "Okay" or similar phrases."""
+        review_sections['strengths'] = self.generate_single_prompt(strengths_prompt)
+
+        # Section 3: Concerns analysis (focused prompt)
+        concerns_prompt = f"""Based on negative customer feedback: \
+{insights['negative_examples']}
+
+Write one paragraph about the main problems customers face with {category}. \
+Be specific about issues and write like you're warning readers. \
+Do not start with "Okay" or similar phrases."""
+        review_sections['concerns'] = self.generate_single_prompt(concerns_prompt)
+
+        # Section 4: Final recommendation (synthesis prompt)
+        recommendation_prompt = f"""For {category}, considering both the positives and \
+negatives from customer reviews, write 2-3 sentences advising who should buy and \
+who should avoid these products. Be direct and helpful. \
+Do not start with "Okay" or similar phrases."""
+        review_sections['recommendation'] = self.generate_single_prompt(recommendation_prompt)
+
+        return review_sections
+
+    def generate_unified_review(self, category: str, insights: Dict) -> str:
+        """Generate comprehensive review content in single prompt for larger models"""
+
+        unified_prompt = f"""Based on customer feedback analysis, write a comprehensive \
+review in this exact structure. Do not include any introductory phrases like \
+"Okay, here is..." or "Based on the data provided...". Start directly with the content.
+
+**Customer Data:**
+POSITIVE: {insights['positive_examples']}
+NEGATIVE: {insights['negative_examples']}
+TOP PRODUCTS: {insights.get('top_product_names', 'Various models')}
+AVOID PRODUCTS: {insights.get('avoid_product_names', 'Lower-rated options')}
+
+**Write the review following this structure:**
+
+### **The {category} Landscape: A Comprehensive Look at Customer Feedback**
+[2-3 sentences setting the scene based on the data]
+
+#### **What's Working Really Well:**
+[Paragraph highlighting 3-4 key strengths from positive feedback, mentioning specific products]
+
+#### **The Red Flags to Watch:**
+[Paragraph covering 2-3 main concerns from negative feedback, being specific about issues]
+
+#### **My Recommendation:**
+[Final paragraph with balanced advice on who should buy and who should avoid]
+
+Write in a conversational, authoritative tone like a tech blogger. \
+Use specific details from the customer data provided. \
+Start directly with the header, no preamble."""
+
+        return self.generate_single_prompt(unified_prompt)
+
+    def assemble_reviewer_content(self, sections: Dict, category: str) -> str:
+        """Assemble sections into cohesive reviewer-style content"""
+        return f"""### **The {category} Landscape: A Comprehensive Look at Customer Feedback**
+
+{sections['opening']}
+
+#### **What's Working Really Well:**
+{sections['strengths']}
+
+#### **The Red Flags to Watch:**
+{sections['concerns']}
+
+#### **My Recommendation:**
+{sections['recommendation']}"""
+
+    def extract_customer_insights_for_prompts(
+            self, sample_reviews: Dict, enhanced_products: Dict) -> Dict:
+        """Extract enhanced customer insights from review data for LLM prompts"""
+        positive_examples = []
+        negative_examples = []
+
+        # Enhanced positive insights extraction
+        for product_name, reviews in sample_reviews.items():
+            for review in reviews:
+                if review['sentiment'] == 'positive' and len(positive_examples) < 4:
+                    # Extract more meaningful quotes (longer, more descriptive)
+                    text = review['text']
+                    if len(text) > 50:  # Only substantial reviews
+                        # Truncate but keep meaningful content
+                        truncated = (text[:200] + '...' if len(text) > 200 else text)
+                        positive_examples.append(
+                            f"'{truncated}' ({review['rating']}/5)")
+
+        # Enhanced negative insights extraction
+        avoid_products = enhanced_products.get('avoid_products', [])
+        for product in avoid_products:
+            product_id = product.get('product_id')
+
+            # Look for negative reviews of avoid products using product_id
+            for product_name, reviews in sample_reviews.items():
+                for review in reviews:
+                    if (review.get('product_id') == product_id and
+                        review['sentiment'] == 'negative' and
+                        len(negative_examples) < 3):
+                        text = review['text']
+                        if len(text) > 30:  # Only substantial negative feedback
+                            truncated = (text[:180] + '...' 
+                                       if len(text) > 180 else text)
+                            negative_examples.append(
+                                f"'{truncated}' ({review['rating']}/5)")
+
+        # If we don't have enough negative examples from avoid products, get from all products
+        if len(negative_examples) < 2:
+            for product_name, reviews in sample_reviews.items():
+                for review in reviews:
+                    if (review['sentiment'] == 'negative' and
+                        len(negative_examples) < 3 and
+                        len(review['text']) > 30):
+                        text = review['text']
+                        truncated = (text[:180] + '...' 
+                                   if len(text) > 180 else text)
+                        negative_examples.append(
+                            f"'{truncated}' ({review['rating']}/5)")
+
+        return {
+            'positive_examples': (' | '.join(positive_examples) 
+                                if positive_examples 
+                                else 'customers praise reliability, ease of use, and good value for money'),
+            'negative_examples': (' | '.join(negative_examples) 
+                                if negative_examples 
+                                else 'some concerns about durability and occasional performance issues')
+        }
+
+    def _calculate_avg_rating(self, product, review_counts: Dict) -> float:
+        """Calculate average rating, handling NaN values"""
+        avg_rating = product.get('avg_rating', 0)
+        if pd.isna(avg_rating) or avg_rating == 0:
+            total_reviews = review_counts['total']
+            if total_reviews > 0:
+                avg_rating = ((review_counts['positive'] * 5.0 + 
+                             review_counts['neutral'] * 3.0 + 
+                             review_counts['negative'] * 1.0) / total_reviews)
             else:
-                # Fallback to product_id if name not available
-                product_name = product_id
+                avg_rating = 3.0
+        return float(avg_rating) if not pd.isna(avg_rating) else 3.0
 
-            result.append({
-                'product_id': product_id,
-                'name': product_name,
-                'avg_rating': metrics['avg_rating'],
-                'review_count': int(metrics['review_count']),
-                'positive_ratio': metrics['positive_ratio'],
-                'combined_score': metrics['combined_score']
+    def _handle_small_categories(self, category_data: pd.DataFrame) -> Dict:
+        """Handle categories with fewer than 3 products"""
+        products_list = []
+        for _, product in category_data.iterrows():
+            pos_count = product.get('positive_review_count', 0)
+            neg_count = product.get('negative_review_count', 0)
+            neu_count = product.get('neutral_review_count', 0)
+            total_reviews = pos_count + neg_count + neu_count
+
+            review_counts = {
+                'positive': pos_count,
+                'negative': neg_count,
+                'neutral': neu_count,
+                'total': total_reviews
+            }
+            avg_rating = self._calculate_avg_rating(product, review_counts)
+
+            products_list.append({
+                'product_id': product['product_id'],
+                'name': product['name'],
+                'avg_rating': avg_rating,
+                'review_count': total_reviews,
+                'positive_ratio': pos_count / total_reviews if total_reviews > 0 else 0,
+                'composite_score': avg_rating,
+                'pos_count': pos_count,
+                'neg_count': neg_count
             })
 
-        return result
+        return {'top_picks': products_list, 'avoid_products': []}
+
+    def get_enhanced_products_for_category(
+            self, category_data: pd.DataFrame) -> Dict:
+        """Return top 3 + bottom 2 products with composite scoring"""
+        if len(category_data) < 1:
+            return {'top_picks': [], 'avoid_products': []}
+
+        if len(category_data) < 3:
+            return self._handle_small_categories(category_data)
+
+        products_with_scores = self._calculate_product_scores(category_data)
+
+        sorted_products = sorted(
+            products_with_scores, key=lambda x: x['composite_score'], reverse=True)
+        top_picks = sorted_products[:3]
+        avoid_products = self._get_avoid_products(
+            products_with_scores, sorted_products)
+
+        return {'top_picks': top_picks, 'avoid_products': avoid_products}
+
+    def _calculate_product_scores(self, category_data: pd.DataFrame) -> List[Dict]:
+        """Calculate composite scores for products"""
+        products_with_scores = []
+
+        for _, product in category_data.iterrows():
+            pos_count = product.get('positive_review_count', 0)
+            neg_count = product.get('negative_review_count', 0)
+            neu_count = product.get('neutral_review_count', 0)
+            total_reviews = pos_count + neg_count + neu_count
+
+            review_counts = {
+                'positive': pos_count,
+                'negative': neg_count,
+                'neutral': neu_count,
+                'total': total_reviews
+            }
+            avg_rating = self._calculate_avg_rating(product, review_counts)
+            sentiment_score = pos_count / total_reviews if total_reviews > 0 else 0
+            volume_score = min(total_reviews / 100.0, 1.0)
+
+            # Calculate sentiment-based avoid score
+            pos_percentage = ((pos_count / total_reviews * 100) 
+                            if total_reviews > 0 else 0)
+            neg_percentage = ((neg_count / total_reviews * 100) 
+                            if total_reviews > 0 else 0)
+            neu_percentage = (((total_reviews - pos_count - neg_count) / total_reviews * 100) 
+                            if total_reviews > 0 else 0)
+            sentiment_avoid_score = pos_percentage - neg_percentage - neu_percentage
+
+            composite_score = (
+                avg_rating * 0.5 +
+                sentiment_score * 5.0 * 0.35 +
+                volume_score * 5.0 * 0.15
+            )
+
+            products_with_scores.append({
+                'product_id': product['product_id'],
+                'name': product['name'],
+                'avg_rating': avg_rating,
+                'review_count': total_reviews,
+                'positive_ratio': sentiment_score,
+                'composite_score': composite_score,
+                'sentiment_avoid_score': sentiment_avoid_score,
+                'pos_count': pos_count,
+                'neg_count': neg_count
+            })
+
+        return products_with_scores
+
+    def _get_avoid_products(
+            self, products_with_scores: List[Dict], 
+            sorted_products: List[Dict]) -> List[Dict]:
+        """Get products that should be avoided based on sentiment scores"""
+        avoid_products = []
+        if len(sorted_products) >= 3:
+            poor_sentiment = [p for p in products_with_scores 
+                            if p['sentiment_avoid_score'] < 65]
+            if poor_sentiment:
+                by_sentiment = sorted(
+                    poor_sentiment, key=lambda x: x['sentiment_avoid_score'])
+                avoid_products = by_sentiment[:2]
+        return avoid_products
+
 
     def generate_stats(self, df: pd.DataFrame) -> Dict:
-        """Generate summary statistics"""
+        """Generate summary statistics from aggregated data"""
+        total_reviews = (df['positive_review_count'].sum() +
+                        df['negative_review_count'].sum() +
+                        df['neutral_review_count'].sum())
+
+        sentiment_distribution = {
+            'positive': int(df['positive_review_count'].sum()),
+            'negative': int(df['negative_review_count'].sum()),
+            'neutral': int(df['neutral_review_count'].sum())
+        }
+
         return {
-            'total_reviews': len(df),
-            'unique_products': df['name'].nunique(),
-            'categories_covered': df['meta_category'].nunique(),
-            'sentiment_distribution': df['sentiment'].value_counts().to_dict(),
-            'average_rating': df['rating'].mean()
+            'total_reviews': int(total_reviews),
+            'unique_products': int(df['name'].nunique()),
+            'categories_covered': int(df['meta_category'].nunique()),
+            'sentiment_distribution': {k: int(v) 
+                                     for k, v in sentiment_distribution.items()},
+            'average_rating': (float(df['avg_rating'].mean()) 
+                             if 'avg_rating' in df.columns else 0.0)
         }

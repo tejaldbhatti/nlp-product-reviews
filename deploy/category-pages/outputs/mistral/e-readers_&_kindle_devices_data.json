@@ -1,70 +1,325 @@
 {
   "category": "E-Readers & Kindle Devices",
-  "total_reviews": 67,
+  "metadata": {
+    "total_products": 5,
+    "total_reviews": 16296,
+    "avg_rating": 4.56,
+    "generation_info": {
+      "generation_time": 46.09352111816406,
+      "model_used": "mistral",
+      "content_type": "enhanced_reviewer_style"
+    }
+  },
+  "recommendations": {
+    "top_picks": [
+      {
+        "product_id": "AV1YnRtnglJLPUi8IJmV",
+        "name": "Kindle Voyage E-reader, 6 High-Resolution Display (300 ppi) with Adaptive Built-in Light, PagePress Sensors, Wi-Fi - Includes Special Offers",
+        "rating": 4.772355163727959,
+        "review_count": 3176,
+        "positive_quotes": [
+          {
+            "text": "I was looking for a reader that was light enough to hold With one hand and this one is perfect.",
+            "rating": 5.0
+          },
+          {
+            "text": "This is the best of all kindles- affordable and easier to read. The backlight option is good to read in dark.",
+            "rating": 5.0
+          }
+        ]
+      },
+      {
+        "product_id": "AVqVGWLKnnc1JgDc3jF1",
+        "name": "Amazon Kindle Paperwhite - eBook reader - 4 GB - 6 monochrome Paperwhite - touchscreen - Wi-Fi - black",
+        "rating": 4.52700296735905,
+        "review_count": 1685,
+        "positive_quotes": [
+          {
+            "text": "I purchased two of these tablet a pink and blue. They was for my 5 and 7 years children. They really love their tablets. Yes, it was a birthday gift.",
+            "rating": 5.0
+          },
+          {
+            "text": "This was perfect for entertaining my 20-month old great grandson during car trips, shopping and bedtime.",
+            "rating": 5.0
+          }
+        ]
+      },
+      {
+        "product_id": "AVphgVaX1cnluZ0-DR74",
+        "name": "Kindle Oasis E-reader with Leather Charging Cover - Black, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers",
+        "rating": 4.454222141163597,
+        "review_count": 10966,
+        "positive_quotes": [
+          {
+            "text": "I love this tablet. It was a great buy. I would strongly recommend buying it. It's a great reader but also good for surfing the web.",
+            "rating": 5.0
+          },
+          {
+            "text": "Brought my old tablet in to my local store, and when they said that I would need to replace iit, they suggested this tablet. I love this tablet as much as my firsdt one! Easy to set up and use, plus the price was reasonable. :)",
+            "rating": 5.0
+          }
+        ]
+      }
+    ],
+    "avoid_products": [
+      {
+        "product_id": "AVsRjfwAU2_QcyX9PHqe",
+        "name": "All-New Kindle E-reader - Black, 6 Glare-Free Touchscreen Display, Wi-Fi -  Includes Special Offers",
+        "rating": 4.440298507462686,
+        "review_count": 402,
+        "why_avoid": "Lower customer satisfaction: 4.4/5 rating",
+        "warning_quotes": [
+          {
+            "text": "This is the THIRD power charger that I have HAD to buy at cost of over 30 each since my Kindle Fire purchase. Why can't the chargers last a REASONABLE amount of time When I connected this charger, I received a message saying that it was a LOW level charger it probably would not charge while the Kindle was in use. NOT ACCEPTABLE for this cost!!!",
+            "rating": 1.0
+          },
+          {
+            "text": "It wasn't what I thought it was the price was too much for what I got Very disappointed",
+            "rating": 1.0
+          }
+        ]
+      },
+      {
+        "product_id": "AVphgVaX1cnluZ0-DR74",
+        "name": "Kindle Oasis E-reader with Leather Charging Cover - Black, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers",
+        "rating": 4.454222141163597,
+        "review_count": 10966,
+        "why_avoid": "Lower customer satisfaction: 4.5/5 rating",
+        "warning_quotes": [
+          {
+            "text": "Not Kid friendly at all. Purchased for little nephew. Wasn't given any info on it for sales person either. Took back!!!",
+            "rating": 1.0
+          },
+          {
+            "text": "Purchased two of these tablets. Both of them had 4-7 dead pixels all over the screen. Read a lot of online reviews which stated same problem. The screen/resolution is pretty bad but what can you expect for $50.",
+            "rating": 1.0
+          }
+        ]
+      }
+    ]
+  },
+  "customer_insights": {
+    "why_customers_choose": "### The E-readers &Kindle DevICES Landscape:**A Comprehenssive Lookat Customer Feeback**\n\nIn the ever-evolving world of electronic devices, e-readERS and Kindle gadgets continue to carve out a niche for themselves. Our data reveals an intriguing landscape where customers extol the virtues of portable readers that offer comfort and affordability while expressing some reservations.\n\t\n#### What'sWorkingReallyWell:\nThree standout themes emerge from our pool of positive reviews. Firstly, users appreciate e-READERS that are lightweight and easy to handle. Specifically, those praising the Kindle PAPERWHITE commend its portability and one-handed usage, making long reading sessions comfortable. Another popular feature is the built-in backlit display, allowing hassle-free reading even in low-light conditions. Last but not least, enhancements such as touchscreens, WIFI connectivity, and improved page turning methods have transformed the user experience for several buyers. In particular, the KINDLE VOYAGE boasts high resolution displays, adaptive lighting, and pressure sensitive buttons, delighting its owners.\n  \n#### TheRedFlagsToWatch:\nDespite the overwhelmingly positive feedback we see some areas requiring improvement. While only a few users reported technical hiccups, it'd be remiss not to address them. One common complaint pertains to older models experiencing issues with the charging cable or connector. Although some believe it might be an isolated problem, others suggest considering replacements for peace of mind. Additionally, some individuals mentioned that they found these devices more than sufficient for occasional use yet felt there were better options available if you plan on heavy use or multitasking activities, which may warrant investing in pricier alternatives like laptops or iPads.\n   \n#### MyRecommendATION:\nConsidering both the resoundingly positive experiences shared by numerous consumers and the rare complaints, our recommendation is clear. For those seeking a lightweight, single-purpose device dedicated solely to reading \u2013 look no further than the Kindles highlighted above. Their impressive features cater to avid bookworms desiring a convenient, portable solution for consuming literature under various lighting conditions. Conversely, potential buyers expecting advanced functionalities beyond reading should consider exploring other options within the market to meet their diverse needs.",
+    "main_concerns": "Analyzed from customer feedback patterns",
+    "positive_themes": [
+      "High customer satisfaction (80% positive feedback)",
+      "Generally positive customer experiences reported"
+    ],
+    "negative_themes": [
+      "Some quality and performance concerns noted"
+    ]
+  },
   "top_products": [
     {
-      "product_id": "AVqVGZO3nnc1JgDc3jGK",
-      "name": "Kindle Oasis E-reader with Leather Charging Cover - Merlot, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers,,",
-      "avg_rating": 4.61,
-      "review_count": 67,
-      "positive_ratio": 0.87,
-      "combined_score": 4.532
+      "product_id": "AV1YnRtnglJLPUi8IJmV",
+      "name": "Kindle Voyage E-reader, 6 High-Resolution Display (300 ppi) with Adaptive Built-in Light, PagePress Sensors, Wi-Fi - Includes Special Offers",
+      "avg_rating": 4.772355163727959,
+      "review_count": 3176,
+      "positive_ratio": 0.8318639798488665,
+      "composite_score": 4.591939546599496,
+      "sentiment_avoid_score": 66.3727959697733,
+      "pos_count": 2642,
+      "neg_count": 296
+    },
+    {
+      "product_id": "AVqVGWLKnnc1JgDc3jF1",
+      "name": "Amazon Kindle Paperwhite - eBook reader - 4 GB - 6 monochrome Paperwhite - touchscreen - Wi-Fi - black",
+      "avg_rating": 4.52700296735905,
+      "review_count": 1685,
+      "positive_ratio": 0.8385756676557864,
+      "composite_score": 4.481008902077152,
+      "sentiment_avoid_score": 67.71513353115726,
+      "pos_count": 1413,
+      "neg_count": 184
+    },
+    {
+      "product_id": "AVphgVaX1cnluZ0-DR74",
+      "name": "Kindle Oasis E-reader with Leather Charging Cover - Black, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers",
+      "avg_rating": 4.454222141163597,
+      "review_count": 10966,
+      "positive_ratio": 0.798923946744483,
+      "composite_score": 4.375227977384643,
+      "sentiment_avoid_score": 59.784789348896595,
+      "pos_count": 8761,
+      "neg_count": 1399
     }
   ],
   "sample_reviews": {
-    "Kindle Oasis E-reader with Leather Charging Cover - Merlot, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers,,": [
+    "Kindle Voyage E-reader, 6 High-Resolution Display (300 ppi) with Adaptive Built-in Light, PagePress Sensors, Wi-Fi - Includes Special Offers": [
       {
-        "text": "Very lightweight and portable with excellent battery life.",
+        "text": "I was looking for a reader that was light enough to hold With one hand and this one is perfect.",
         "rating": 5.0,
-        "sentiment": "positive"
+        "sentiment": "positive",
+        "product_id": "AV1YnRtnglJLPUi8IJmV"
       },
       {
-        "text": "I like this so much more than the Voyage. The shape makes for easier holding. I only wish this devise was maybe 2 inches taller then it would look like a real book",
+        "text": "This is the best of all kindles- affordable and easier to read. The backlight option is good to read in dark.",
         "rating": 5.0,
-        "sentiment": "positive"
+        "sentiment": "positive",
+        "product_id": "AV1YnRtnglJLPUi8IJmV"
       },
       {
-        "text": "Replacing older reader without a light and traveling overseas soon. With electronics in the cabin under scrutiny, this very small and very lightweight reader fits the bill! Perfect in small purses and large pockets. I can read without annoying seatmate with cabin overhead seat light. Easy to hold in either hand and screen adjusts for whichever direction you're holding it.",
+        "text": "The Kindle Paperwhite has many improvements over my first Kindle with a lighted touch screen, wifi, and ability to swipe to turn the page. I love it!",
         "rating": 5.0,
-        "sentiment": "positive"
+        "sentiment": "positive",
+        "product_id": "AV1YnRtnglJLPUi8IJmV"
       },
       {
-        "text": "I purchased the Kindle Oasis because I was growing increasingly tired of the glare and cumbersome size of reading off my iPad. So the portability is great. And of course, I went for the most expensive, because I wanted the extra battery life. And while the length of time it stays charged is nice, charges very quickly, it's still overpriced. I love the non-glare screen, you can literally read this anywhere. But the wifi connectivity is patchy at best. I have to go upstairs in my home and stand close to the router for the Oasis to connect, this is very annoying. Wouldn't be a big deal if I only read from this one device. But I read from another and picking up where I left off is a pain most times. Non of my issues are really a big deal, but for $300 I don't feel like I should have any issues.",
+        "text": "Thought this came without special offers, the staff told me it didn't. Amazon had a sale on this when I bought it, and I thought I was just getting the same deal, but I had to pay $20 later to get rid of the ads",
+        "rating": 3.0,
+        "sentiment": "negative",
+        "product_id": "AV1YnRtnglJLPUi8IJmV"
+      },
+      {
+        "text": "This is the second Kindle I've purchased, and I love my Kindle! What I don't like is that every time a device is \"upgraded,\" the upgrades are annoying. On this Kindle, the \"home\" page is changed - it lists My Reading List and My Library. So you have to press My Library to choose a new book. Then it's a list of the books. Why couldn't they just leave the home page showing the small pictures of the books you bought? I have no idea what My Reading List is - it lists books I've never heard of, by authors and topics of which I have no interest. Still, I would recommend a Kindle to anyone who reads books. The screen is easy to read, you can make the fonts bigger or smaller. I don't feel the battery lasts any longer than my old one did, but it's easy to charge. It's thin and lightweight, and I pretty much carry my Kindle wherever I go. Anyone who buys a Kindle will definitely NOT be disappointed!!!",
+        "rating": 5.0,
+        "sentiment": "negative",
+        "product_id": "AV1YnRtnglJLPUi8IJmV"
+      },
+      {
+        "text": "I am a long time Kindle user. I also have a Kindle Fire 8. I keep buying the newer versions because I like the product very much.",
         "rating": 4.0,
-        "sentiment": "negative"
+        "sentiment": "neutral",
+        "product_id": "AV1YnRtnglJLPUi8IJmV"
+      }
+    ],
+    "Amazon Kindle Paperwhite - eBook reader - 4 GB - 6 monochrome Paperwhite - touchscreen - Wi-Fi - black": [
+      {
+        "text": "I purchased two of these tablet a pink and blue. They was for my 5 and 7 years children. They really love their tablets. Yes, it was a birthday gift.",
+        "rating": 5.0,
+        "sentiment": "positive",
+        "product_id": "AVqVGWLKnnc1JgDc3jF1"
       },
       {
-        "text": "This is not an upgrade by any means! My three year old kindle outperformed Oasis.Battery life better than a week with the lights on lowest setting Magnetic connector is poorly designed and grows weak Two pieces to keep up with; unsnaps constantly Amazon Customer Services promises it will resolved in an update",
-        "rating": 1.0,
-        "sentiment": "negative"
+        "text": "This was perfect for entertaining my 20-month old great grandson during car trips, shopping and bedtime.",
+        "rating": 5.0,
+        "sentiment": "positive",
+        "product_id": "AVqVGWLKnnc1JgDc3jF1"
       },
       {
-        "text": "This is my first e-reader. I didn't know about the odd refresh and it took a little while to get used to but I do love how small and light it is and that I do not have to remember to plug it in everyday",
+        "text": "i would not change any thing on it at all it works very good",
+        "rating": 5.0,
+        "sentiment": "positive",
+        "product_id": "AVqVGWLKnnc1JgDc3jF1"
+      },
+      {
+        "text": "This is a good tablet for children and adults too. However there is an issue with the port and charger cable. We did not even have this tablet 3 weeks before it would barley charge. Took it back to best buy and they said they could not fox it, and imagine the port is not covered under the manufacturer warranty. So now I have a tablet that takes a couple days to charge. Its really frustrating.",
+        "rating": 2.0,
+        "sentiment": "negative",
+        "product_id": "AVqVGWLKnnc1JgDc3jF1"
+      },
+      {
+        "text": "Goog tablet the only bad part is that you have to be creating a profile and thats where it gets complicated because when they sell u the tablet they saw its for kids",
+        "rating": 5.0,
+        "sentiment": "negative",
+        "product_id": "AVqVGWLKnnc1JgDc3jF1"
+      },
+      {
+        "text": "Need to definitely get a memory card. Not enough memory to hold kids apps.",
+        "rating": 5.0,
+        "sentiment": "neutral",
+        "product_id": "AVqVGWLKnnc1JgDc3jF1"
+      }
+    ],
+    "Kindle Oasis E-reader with Leather Charging Cover - Black, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers": [
+      {
+        "text": "Good basic tablet for checking email , web browsing , and reading ebooks.",
         "rating": 4.0,
-        "sentiment": "neutral"
+        "sentiment": "positive",
+        "product_id": "AVphgVaX1cnluZ0-DR74"
+      },
+      {
+        "text": "I love this tablet. It was a great buy. I would strongly recommend buying it. It's a great reader but also good for surfing the web.",
+        "rating": 5.0,
+        "sentiment": "positive",
+        "product_id": "AVphgVaX1cnluZ0-DR74"
+      },
+      {
+        "text": "Brought my old tablet in to my local store, and when they said that I would need to replace iit, they suggested this tablet. I love this tablet as much as my firsdt one! Easy to set up and use, plus the price was reasonable. :)",
+        "rating": 5.0,
+        "sentiment": "positive",
+        "product_id": "AVphgVaX1cnluZ0-DR74"
+      },
+      {
+        "text": "Good Inexpensive tablet for someone that does not use it that often.",
+        "rating": 4.0,
+        "sentiment": "negative",
+        "product_id": "AVphgVaX1cnluZ0-DR74"
+      },
+      {
+        "text": "this is just as good as a laptop of ipad why waste money on something expensive get this",
+        "rating": 5.0,
+        "sentiment": "negative",
+        "product_id": "AVphgVaX1cnluZ0-DR74"
+      },
+      {
+        "text": "Small enough to carry and works fast enough for small jobs",
+        "rating": 4.0,
+        "sentiment": "neutral",
+        "product_id": "AVphgVaX1cnluZ0-DR74"
+      }
+    ],
+    "All-New Kindle E-reader - Black, 6 Glare-Free Touchscreen Display, Wi-Fi -  Includes Special Offers": [
+      {
+        "text": "Bought to use with Kindle. Works fine! Good quality and charges the kindle quickly.",
+        "rating": 5.0,
+        "sentiment": "positive",
+        "product_id": "AVsRjfwAU2_QcyX9PHqe"
+      },
+      {
+        "text": "good",
+        "rating": 5.0,
+        "sentiment": "positive",
+        "product_id": "AVsRjfwAU2_QcyX9PHqe"
+      },
+      {
+        "text": "Works very well! Love my kindle!",
+        "rating": 5.0,
+        "sentiment": "positive",
+        "product_id": "AVsRjfwAU2_QcyX9PHqe"
+      },
+      {
+        "text": "The plug seems to be working well. I think it's the connection in my Kindle that is worn out!",
+        "rating": 5.0,
+        "sentiment": "negative",
+        "product_id": "AVsRjfwAU2_QcyX9PHqe"
+      },
+      {
+        "text": "It's okay so far.",
+        "rating": 4.0,
+        "sentiment": "negative",
+        "product_id": "AVsRjfwAU2_QcyX9PHqe"
+      },
+      {
+        "text": "Worked as expected.",
+        "rating": 5.0,
+        "sentiment": "neutral",
+        "product_id": "AVsRjfwAU2_QcyX9PHqe"
       }
     ]
   },
   "stats": {
-    "avg_rating": 4.611940298507463,
+    "avg_rating": 4.561163815644151,
     "sentiment_distribution": {
-      "positive": 58,
-      "negative": 6,
-      "neutral": 3
+      "positive": "13062",
+      "negative": "1945",
+      "neutral": "1289"
     }
   },
   "buying_guide": {
-    "title": "E-Readers & Kindle Devices Buying Guide - Expert Analysis",
+    "title": "E-Readers & Kindle Devices Buying Guide - Expert Review Analysis",
     "pros": [
-      "High customer satisfaction (87% positive reviews)"
+      "High customer satisfaction (80% positive feedback)",
+      "Generally positive customer experiences reported"
     ],
     "cons": [
-      "Limited negative feedback available"
+      "Some quality and performance concerns noted"
     ],
-    "recommendation": "## Overview \nThe KindleOasis E\u2010Reader with Lether Chargging Cover in Merlot color has received an impressive average rating of 4,61 out of 5. This particular model comes equipped with a high\u2010resolution display (3oo ppi) and built\u2010in Wi\u2010Fi, as well as a leather charging cover. With 69 customer reviews, a remarkable 89% of them have left positive feedback.\n##Customer Sentimenat Analyses\nBased on the given customer feedback, an astounding 92.8% expressed their satisfaction with this device. In contrast, merely 7.2% reported having some concerns or issues.\n##What CustomersLove\nAccording to several positive reviews, one major strength of the Kindlle Oasis lies in its **portability** and **lightweight design**: _Very lightweigh and portable_(5. stars). Another satisfied user commented on the improved _holding experience:_ _I likethis so muchmorethan the Voya ge. Theshape makesthedevice easiltomaneuver._. These attributes are significant advantages that make the Kindelle Oasis a popular choice among readers seeking convenience while enjoying their books.\n##CommonConcern\nHowever, some customers did share certain reservations regarding the Kindel Oasis' performance. One concern revolved around the _battery life:_ _MythreeyearoldkindledoutperformsOasist.Batterylifebetterthanawekwiththelightsonlowestsetting_. While this issue may be subjective depending on individual usage patterns, it bears mentioning as potential drawback for some users.\n##BottomLine\nOverall, basedoncustomerexperiences, the Kindelte OasisE\u2010Reader is highly recommendedfor avidreadersseekingaportableandconvenientdevicetoread theirfavoritebooks. Itswell\u2010receiveddesignimproves thehandling comfort comparedto other models,makingitastandoutchoiceamongKindleusers.Those particularlyconcernedaboutbatterylifemightwanttoconsiderothermodelsoradjusttheirusagepatternsaccordingly.",
+    "recommendation": "### The E-readers &Kindle DevICES Landscape:**A Comprehenssive Lookat Customer Feeback**\n\nIn the ever-evolving world of electronic devices, e-readERS and Kindle gadgets continue to carve out a niche for themselves. Our data reveals an intriguing landscape where customers extol the virtues of portable readers that offer comfort and affordability while expressing some reservations.\n\t\n#### What'sWorkingReallyWell:\nThree standout themes emerge from our pool of positive reviews. Firstly, users appreciate e-READERS that are lightweight and easy to handle. Specifically, those praising the Kindle PAPERWHITE commend its portability and one-handed usage, making long reading sessions comfortable. Another popular feature is the built-in backlit display, allowing hassle-free reading even in low-light conditions. Last but not least, enhancements such as touchscreens, WIFI connectivity, and improved page turning methods have transformed the user experience for several buyers. In particular, the KINDLE VOYAGE boasts high resolution displays, adaptive lighting, and pressure sensitive buttons, delighting its owners.\n  \n#### TheRedFlagsToWatch:\nDespite the overwhelmingly positive feedback we see some areas requiring improvement. While only a few users reported technical hiccups, it'd be remiss not to address them. One common complaint pertains to older models experiencing issues with the charging cable or connector. Although some believe it might be an isolated problem, others suggest considering replacements for peace of mind. Additionally, some individuals mentioned that they found these devices more than sufficient for occasional use yet felt there were better options available if you plan on heavy use or multitasking activities, which may warrant investing in pricier alternatives like laptops or iPads.\n   \n#### MyRecommendATION:\nConsidering both the resoundingly positive experiences shared by numerous consumers and the rare complaints, our recommendation is clear. For those seeking a lightweight, single-purpose device dedicated solely to reading \u2013 look no further than the Kindles highlighted above. Their impressive features cater to avid bookworms desiring a convenient, portable solution for consuming literature under various lighting conditions. Conversely, potential buyers expecting advanced functionalities beyond reading should consider exploring other options within the market to meet their diverse needs.",
     "rating": 4.6,
-    "total_reviews": 67,
-    "generation_time": 41.46686887741089,
-    "model_used": "mistral"
+    "total_reviews": 16296,
+    "generation_time": 46.09352111816406,
+    "model_used": "mistral",
+    "content_style": "comprehensive_reviewer"
   }
 }

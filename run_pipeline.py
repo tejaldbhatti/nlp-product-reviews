@@ -3,10 +3,27 @@ Simple CSV-Based Summarization Pipeline
 Run this after the sentiment and category CSV files are ready.
 """
 import os
-
+import math
 import json
 from src.summarization.pipeline import SummarizationPipeline
 
+
+def clean_data_recursively(obj):
+    """Recursively clean data to handle NaN values"""
+    if isinstance(obj, dict):
+        return {key: clean_data_recursively(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_data_recursively(item) for item in obj]
+    elif isinstance(obj, float) and math.isnan(obj):
+        return None
+    else:
+        return obj
+
+def json_serializer(obj):
+    """Custom JSON serializer to handle NaN values"""
+    if isinstance(obj, float) and math.isnan(obj):
+        return None
+    return str(obj)
 
 def main():
     """Main function to run the NLP product review summarization pipeline."""
@@ -14,48 +31,30 @@ def main():
     category_csv = "results/category_mapping.csv"
 
     print("=== ROBOREVIEWS SUMMARIZATION PIPELINE ===")
-    print()
 
-    # Model options (fastest to slowest, available without gating):
-    # gemma-2b        (2B params) - Good balance of speed and quality
-    # mistral         (7B params) - High quality baseline
-    # qwen            (7B params) - Qwen2-7B-Instruct baseline
-    # qwen-finetuned  (7B params) - Fine-tuned Qwen model for summarization
-    # gemini-pro-flash (API) - Google's Gemini 2.5 Flash via API
-
-    model_type = "gemma-2b"
+    # models available: gemma-2b, mistral, qwen, qwen-finetuned, gemini-pro-flash
+    model_type = "gemma-2b"  # Change this to the desired model type
     print(f"Using model: {model_type}")
-
-    # Initialize pipeline
     pipeline = SummarizationPipeline(model_type=model_type)
 
-    # Run the pipeline
     try:
         results = pipeline.run_pipeline(sentiment_csv, category_csv)
+        print(f"\n=== RESULTS ===")
+        print(f"Generated {len(results['category_articles'])} category guides")
 
-        print("\n=== PIPELINE RESULTS ===")
-        print(f"Statistics: {results['stats']}")
-        print(f"Generated articles for {len(results['category_articles'])} categories")
-
-        # Save results to deployment directory
         output_dir = f"deploy/category-pages/outputs/{model_type}"
-        print(f"\nSaving results to {output_dir}/...")
-
-        # Create output directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
 
-        # Save category data as JSON files
         for category, article_data in results['category_articles'].items():
             filename = f"{output_dir}/{category.replace(' ', '_').lower()}_data.json"
+            cleaned_data = clean_data_recursively(article_data)
             with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(article_data, f, indent=2, default=str)
-            print(f"Saved: {filename}")
+                json.dump(cleaned_data, f, indent=2, default=json_serializer)
 
-        # Save stats
         with open(f"{output_dir}/pipeline_stats.json", 'w', encoding='utf-8') as f:
             json.dump(results['stats'], f, indent=2)
 
-        print("\nPipeline completed successfully!")
+        print("Pipeline completed successfully!")
 
     except FileNotFoundError as e:
         print(f"Missing file: {e}")

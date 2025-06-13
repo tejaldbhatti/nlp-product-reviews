@@ -1,367 +1,594 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RoboReviews - Product Category Guides</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        .category-card { margin-bottom: 2rem; }
-        .product-card { margin-bottom: 1rem; }
-        .review-quote { 
-            background-color: #f8f9fa; 
-            padding: 1rem; 
-            border-left: 4px solid #007bff; 
-            margin: 0.5rem 0;
-            font-style: italic;
-        }
-        .rating-stars { color: #ffc107; }
-        .sentiment-positive { color: #28a745; }
-        .sentiment-negative { color: #dc3545; }
-        .sentiment-neutral { color: #6c757d; }
-        
-        /* Override GitHub markdown dark mode - force light theme */
-        .markdown-body {
-            box-sizing: border-box;
-            min-width: 200px;
-            max-width: none;
-            margin: 0;
-            padding: 0;
-            font-size: 14px;
-            line-height: 1.5;
-            word-wrap: break-word;
-            background-color: white !important;
-            color: #24292f !important;
-        }
-        
-        .markdown-body h1, .markdown-body h2, .markdown-body h3, 
-        .markdown-body h4, .markdown-body h5, .markdown-body h6 {
-            color: #24292f !important;
-            border-bottom-color: #d0d7de !important;
-        }
-        
-        .markdown-body ul, .markdown-body ol {
-            margin-bottom: 1rem;
-        }
-        
-        .markdown-body code {
-            background-color: rgba(175,184,193,0.2) !important;
-            color: #24292f !important;
-        }
-        
-        .markdown-body pre {
-            background-color: #f6f8fa !important;
-            color: #24292f !important;
-        }
-        
-        .markdown-body blockquote {
-            color: #656d76 !important;
-            border-left-color: #d0d7de !important;
-        }
-    </style>
-</head>
-<body>
-    <div class="container my-4">
-        <h1 class="text-center mb-4">RoboReviews - AI-Generated Buying Guides</h1>
-        <p class="text-center text-muted">Professional product recommendations based on customer review analysis</p>
-        
-        <!-- Model Selection Dropdown -->
-        <div class="row justify-content-center mb-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title text-center">Select Model Output</h5>
-                        <select id="model-selector" class="form-select" onchange="loadSelectedModel()">
-                            <option value="">Detecting available models...</option>
-                        </select>
-                        <small class="text-muted d-block mt-2 text-center">
-                            Compare different AI approaches for generating buying guides
-                        </small>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Product Review Categories</title>
+        <!-- Bootstrap CSS -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+            integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+            crossorigin="anonymous"
+        />
+        <!-- Font Awesome for icons -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+            integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        />
+        <!-- Marked.js for Markdown parsing -->
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <style>
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f8f9fa;
+            }
+            .container {
+                margin-top: 30px;
+                margin-bottom: 30px;
+            }
+            .category-card,
+            .product-card {
+                border: none;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                margin-bottom: 25px;
+                overflow: hidden; /* Ensure rounded corners clip content */
+            }
+            .review-quote {
+                padding: 10px 15px;
+                border-left: 5px solid;
+                margin-bottom: 10px;
+                background-color: #f0f8ff;
+                border-radius: 8px;
+                font-style: italic;
+            }
+            .review-quote.border-success {
+                border-color: #28a745;
+                background-color: #e6ffed;
+            }
+            .review-quote.border-warning {
+                border-color: #ffc107;
+                background-color: #fff8e6;
+            }
+            .rating-stars {
+                color: #ffc107; /* Bootstrap yellow */
+            }
+            .sentiment-positive {
+                color: #28a745;
+            }
+            .sentiment-negative {
+                color: #dc3545;
+            }
+            .sentiment-neutral {
+                color: #6c757d;
+            }
+
+            /* Specific card styles for AI output alerts */
+            .card.border-success .card-header,
+            .card.border-primary .card-header {
+                background-color: #e0f7fa; /* Light blue for info/AI */
+                border-bottom: 1px solid #007bff;
+                color: #007bff;
+            }
+            .card.border-warning .card-header {
+                background-color: #fff3cd; /* Light yellow for warning */
+                border-bottom: 1px solid #ffc107;
+                color: #ffc107;
+            }
+            .insights-section .badge {
+                font-size: 0.8em;
+                padding: 0.4em 0.7em;
+                border-radius: 0.35rem;
+            }
+            .markdown-content p:last-child {
+                margin-bottom: 0; /* Remove extra margin from last paragraph in markdown */
+            }
+            /* Styling for markdown content */
+            .markdown-body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+                    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+                font-size: 16px;
+                line-height: 1.5;
+                word-wrap: break-word;
+            }
+            .markdown-body h1,
+            .markdown-body h2,
+            .markdown-body h3,
+            .markdown-body h4,
+            .markdown-body h5,
+            .markdown-body h6 {
+                margin-top: 1em;
+                margin-bottom: 0.5em;
+                font-weight: 600;
+                line-height: 1.25;
+                border-bottom: 1px solid #eaecef; /* Light separator */
+                padding-bottom: 0.3em;
+            }
+            .markdown-body ul,
+            .markdown-body ol {
+                padding-left: 2em;
+                margin-top: 0;
+                margin-bottom: 1em;
+            }
+            .markdown-body code {
+                padding: 0.2em 0.4em;
+                margin: 0;
+                font-size: 85%;
+                background-color: rgba(27, 31, 35, 0.05);
+                border-radius: 6px;
+            }
+            .markdown-body pre {
+                padding: 16px;
+                overflow: auto;
+                font-size: 85%;
+                line-height: 1.45;
+                background-color: #f6f8fa;
+                border-radius: 6px;
+            }
+            .markdown-body blockquote {
+                padding: 0 1em;
+                color: #6a737d;
+                border-left: 0.25em solid #dfe2e5;
+                margin: 0.5em 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1 class="mb-4 text-center">Product Review Insights Dashboard</h1>
+
+            <div class="mb-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="modelSelector" class="form-label"
+                            >Select Model:</label
+                        >
+                        <select class="form-select" id="modelSelector"></select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div id="modelStatus" class="ms-3 text-muted"></div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <div id="categories-container">
-            <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
+
+            <div
+                id="summaryStats"
+                class="alert alert-primary mb-4"
+                style="display: none"
+            >
+                <h4>Overall Insights <i class="fas fa-chart-bar"></i></h4>
+                <p>
+                    <strong>Total Products Analyzed:</strong>
+                    <span id="statsTotalProducts"></span>
+                </p>
+                <p>
+                    <strong>Total Reviews Processed:</strong>
+                    <span id="statsTotalReviews"></span>
+                </p>
+                <p>
+                    <strong>Average Rating Across All Products:</strong>
+                    <span id="statsAvgRating"></span>
+                </p>
+                <p><strong>Sentiment Distribution:</strong></p>
+                <div class="progress mb-2" style="height: 25px">
+                    <div
+                        id="progressPositive"
+                        class="progress-bar bg-success"
+                        role="progressbar"
+                        style="width: 0%"
+                        aria-valuenow="0"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                    ></div>
+                    <div
+                        id="progressNegative"
+                        class="progress-bar bg-danger"
+                        role="progressbar"
+                        style="width: 0%"
+                        aria-valuenow="0"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                    ></div>
+                    <div
+                        id="progressNeutral"
+                        class="progress-bar bg-secondary"
+                        role="progressbar"
+                        style="width: 0%"
+                        aria-valuenow="0"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                    ></div>
                 </div>
-                <p>Loading category data...</p>
+                <p class="text-end">
+                    <span class="text-success"
+                        ><i class="fas fa-smile"></i> Positive:
+                        <span id="percentPositive"></span>%</span
+                    >
+                    |
+                    <span class="text-danger"
+                        ><i class="fas fa-frown"></i> Negative:
+                        <span id="percentNegative"></span>%</span
+                    >
+                    |
+                    <span class="text-secondary"
+                        ><i class="fas fa-meh"></i> Neutral:
+                        <span id="percentNeutral"></span>%</span
+                    >
+                </p>
+            </div>
+
+            <div id="categoryCards">
+                <!-- Category cards will be injected here -->
             </div>
         </div>
-    </div>
 
-    <script>
-        // Dynamic model detection - will be populated by scanning outputs directory
-        let modelConfigs = {};
+        <!-- Bootstrap JS Bundle -->
+        <script
+            src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+            crossorigin="anonymous"
+        ></script>
+        <script>
+            let modelConfigs = []; // To store available models and their paths
 
-        async function detectAvailableModels() {
-            // First, try to discover what model directories actually exist
-            // by checking what we can find in the outputs directory
-            let potentialModels = [];
-            
-            // Try to discover models by checking for existing directories
-            // We'll check a few common ones that we know might exist
-            const commonModels = ['gemma-2b', 'mistral', 'qwen', 'qwen-finetuned', 'gemini-pro-flash'];
-            
-            for (const model of commonModels) {
+            // Configure marked.js globally on script load
+            marked.setOptions({
+                breaks: true, // Treat single newlines as <br>
+                gfm: true, // Use GitHub Flavored Markdown
+                headerIds: false, // Don't add IDs to headers
+                mangle: false, // Don't obfuscate email addresses
+            });
+
+            async function detectAvailableModels() {
+                const modelsDir = "outputs/";
                 try {
-                    const response = await fetch(`./outputs/${model}/pipeline_stats.json`, {method: 'HEAD'});
-                    if (response.ok) {
-                        potentialModels.push(model);
+                    const response = await fetch(modelsDir);
+                    if (!response.ok) {
+                        throw new Error(
+                            `HTTP error! status: ${response.status}`,
+                        );
                     }
-                } catch (error) {
-                    // Model doesn't exist, skip silently
+                    const text = await response.text();
+                    const parser = new DOMParser();
+                    const htmlDoc = parser.parseFromString(text, "text/html");
+                    const links = htmlDoc.querySelectorAll("a");
+
+                    const modelDirs = Array.from(links)
+                        .map((link) => link.getAttribute("href"))
+                        .filter(
+                            (href) =>
+                                href &&
+                                href.endsWith("/") &&
+                                href !== "../" &&
+                                href !== "./",
+                        )
+                        .map((href) => href.replace(/\//g, "")); // Remove trailing slash
+
+                    // Populate modelConfigs with detected directories in the desired order
+                    const desiredOrder = ["gemma-2b", "mistral", "qwen", "qwen-finetuned", "gemini-pro-flash"];
+                    const detectedModels = modelDirs.map((dir) => ({
+                        name: dir.replace(/_/g, "-"),
+                        path: dir,
+                    }));
+                    
+                    // Sort by desired order, then add any additional models found
+                    modelConfigs = [];
+                    for (const modelName of desiredOrder) {
+                        const found = detectedModels.find(m => m.name === modelName);
+                        if (found) {
+                            modelConfigs.push(found);
+                        }
+                    }
+                    // Add any models not in the desired order list
+                    for (const model of detectedModels) {
+                        if (!desiredOrder.includes(model.name)) {
+                            modelConfigs.push(model);
+                        }
+                    }
+
+                    populateModelSelector();
+                    loadSelectedModel(); // Load default or saved model data on page load
+                } catch (e) {
+                    // Fallback to hardcoded models if directory listing fails (e.g., due to CORS or local file system)
+                    modelConfigs = [
+                        { name: "gemma-2b", path: "gemma-2b" },
+                        { name: "mistral", path: "mistral" },
+                        { name: "qwen", path: "qwen" },
+                        { name: "qwen-finetuned", path: "qwen-finetuned" },
+                        { name: "gemini-pro-flash", path: "gemini-pro-flash" },
+                    ];
+                    populateModelSelector();
+                    loadSelectedModel();
                 }
             }
-            
-            const modelNameMap = {
-                'gemma-2b': 'Gemma-2B (Fast Baseline)',
-                'mistral': 'Mistral-7B (Baseline Prompting)', 
-                'qwen': 'Qwen2-7B (Baseline Prompting)',
-                'qwen-finetuned': 'Qwen2-7B (Fine-tuned)',
-                'gemini-pro-flash': 'Gemini 2.5 Flash (API)'
-            };
-            
-            // Only process the models we found to exist
-            for (const modelName of potentialModels) {
-                const modelPath = `./outputs/${modelName}`;
-                
-                // We already confirmed these exist with HEAD request above
+
+            async function detectModelFiles(modelPath) {
+                const path = `outputs/${modelPath}/`;
+                try {
+                    const response = await fetch(path);
+                    if (!response.ok) {
+                        throw new Error(
+                            `HTTP error! status: ${response.status}`,
+                        );
+                    }
+                    const text = await response.text();
+                    const parser = new DOMParser();
+                    const htmlDoc = parser.parseFromString(text, "text/html");
+                    const links = htmlDoc.querySelectorAll("a");
+
+                    const jsonFiles = Array.from(links)
+                        .map((link) => link.getAttribute("href"))
+                        .filter(
+                            (href) =>
+                                (href && href.endsWith("_data.json")) ||
+                                href.endsWith("pipeline_stats.json"),
+                        );
+
+                    return jsonFiles;
+                } catch (e) {
+                    return [];
+                }
+            }
+
+            function populateModelSelector() {
+                const selector = document.getElementById("modelSelector");
+                selector.innerHTML = ""; // Clear existing options
+                modelConfigs.forEach((model) => {
+                    const option = document.createElement("option");
+                    option.value = model.path;
+                    option.textContent = model.name;
+                    selector.appendChild(option);
+                });
+
+                // Set selected model from localStorage or default to the first one
+                const savedModel = localStorage.getItem("selectedModel");
+                if (
+                    savedModel &&
+                    modelConfigs.some((m) => m.path === savedModel)
+                ) {
+                    selector.value = savedModel;
+                } else if (modelConfigs.length > 0) {
+                    selector.value = modelConfigs[0].path;
+                }
+
+                selector.addEventListener("change", loadSelectedModel);
+            }
+
+            async function loadSelectedModel() {
+                const selectedModelPath =
+                    document.getElementById("modelSelector").value;
+                localStorage.setItem("selectedModel", selectedModelPath); // Save preference
+                document.getElementById("modelStatus").textContent =
+                    `Loading ${selectedModelPath}...`;
+                document.getElementById("categoryCards").innerHTML = ""; // Clear previous content
+                document.getElementById("summaryStats").style.display = "none"; // Hide stats
+                await loadModelData(selectedModelPath);
+            }
+
+            async function loadModelData(modelPath) {
                 const files = await detectModelFiles(modelPath);
-                if (files.length > 0) {
-                    modelConfigs[modelPath] = {
-                        name: modelNameMap[modelName] || `${modelName} (Auto-detected)`,
-                        files: files
-                    };
-                    console.log(`Detected model: ${modelName} with ${files.length} files`);
-                }
-            }
-            
-            return Object.keys(modelConfigs).length > 0;
-        }
-        
-        async function detectModelFiles(modelPath) {
-            // First try to get the actual files that exist by checking pipeline_stats.json
-            try {
-                const response = await fetch(`${modelPath}/pipeline_stats.json`);
-                if (response.ok) {
-                    const stats = await response.json();
-                    // The stats should tell us which categories were generated
-                    if (stats.categories) {
-                        return stats.categories.map(cat => `${cat.replace(/ /g, '_').toLowerCase()}_data.json`);
+                const categoryDataPromises = [];
+                let pipelineStats = null;
+
+                for (const file of files) {
+                    const filePath = `outputs/${modelPath}/${file}`;
+                    if (file.endsWith("pipeline_stats.json")) {
+                        pipelineStats = fetch(filePath).then((res) =>
+                            res.json(),
+                        );
+                    } else if (file.endsWith("_data.json")) {
+                        categoryDataPromises.push(
+                            fetch(filePath).then((res) => res.json()),
+                        );
                     }
                 }
-            } catch (error) {
-                console.log('Could not read pipeline stats');
-            }
-            
-            // Fallback: scan for actual files that exist (only the ones we know work)
-            const knownFiles = [
-                'fire_tablets_&_echo_speakers_data.json',
-                'e-readers_&_kindle_devices_data.json', 
-                'kindle_cases_&_covers_data.json'
-            ];
-            
-            const availableFiles = [];
-            
-            for (const file of knownFiles) {
+
                 try {
-                    const response = await fetch(`${modelPath}/${file}`, {method: 'HEAD'});
-                    if (response.ok) {
-                        availableFiles.push(file);
-                    }
-                } catch (error) {
-                    // File doesn't exist, continue
-                }
-            }
-            
-            return availableFiles;
-        }
-        
-        function populateModelSelector() {
-            const selector = document.getElementById('model-selector');
-            selector.innerHTML = ''; // Clear existing options
-            
-            if (Object.keys(modelConfigs).length === 0) {
-                selector.innerHTML = '<option value="">No models found</option>';
-                return;
-            }
-            
-            // Add option for each detected model
-            for (const [path, config] of Object.entries(modelConfigs)) {
-                const option = document.createElement('option');
-                option.value = path;
-                option.textContent = `${config.name} (${config.files.length} categories)`;
-                selector.appendChild(option);
-            }
-            
-            // Select the first model by default
-            if (selector.options.length > 0) {
-                selector.selectedIndex = 0;
-                loadSelectedModel();
-            }
-        }
+                    const categoryData =
+                        await Promise.all(categoryDataPromises);
+                    const stats = pipelineStats ? await pipelineStats : null;
 
-        function loadSelectedModel() {
-            const selector = document.getElementById('model-selector');
-            const selectedPath = selector.value;
-            
-            if (!selectedPath || !modelConfigs[selectedPath]) {
-                console.log('No valid model selected');
-                return;
-            }
-            
-            loadModelData(selectedPath, modelConfigs[selectedPath]);
-        }
-
-        async function loadModelData(modelPath, config) {
-            const contentArea = document.getElementById('categories-container');
-            contentArea.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Loading model data...</p></div>';
-
-            console.log(`Loading data for: ${config.name}`);
-
-            // Add model info header
-            contentArea.innerHTML = `
-                <div class="alert alert-info text-center">
-                    <h5>Viewing: ${config.name}</h5>
-                    <small>Generated content from ${config.files.length} categories</small>
-                </div>
-                <div id="content-area"></div>
-            `;
-            
-            const contentContainer = document.getElementById('content-area');
-
-            for (const categoryFile of config.files) {
-                try {
-                    const response = await fetch(`${modelPath}/${categoryFile}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        const card = createCategoryCard(data);
-                        contentContainer.appendChild(card);
+                    if (stats) {
+                        displaySummaryStats(stats);
                     } else {
-                        console.log(`File not found: ${categoryFile}`);
+                        document.getElementById("summaryStats").style.display =
+                            "none";
                     }
+
+                    const categoryCardsContainer =
+                        document.getElementById("categoryCards");
+                    categoryCardsContainer.innerHTML = ""; // Clear existing cards
+                    categoryData.sort((a, b) =>
+                        a.category.localeCompare(b.category),
+                    ); // Sort categories alphabetically
+                    categoryData.forEach((data) => {
+                        categoryCardsContainer.appendChild(
+                            createCategoryCard(data),
+                        );
+                    });
+                    document.getElementById("modelStatus").textContent =
+                        `Data loaded for ${modelPath}.`;
                 } catch (error) {
-                    console.log(`Could not load ${categoryFile}:`, error);
+                    document.getElementById("modelStatus").textContent =
+                        `Failed to load data for ${modelPath}.`;
+                    document.getElementById("categoryCards").innerHTML =
+                        '<p class="text-danger">Failed to load data for this model. Please check the console for more details.</p>';
                 }
             }
 
-            if (contentContainer.children.length === 0) {
-                contentContainer.innerHTML = '<div class="alert alert-warning">No category data found for this model. The output directory may be empty.</div>';
-            }
-        }
+            function createCategoryCard(data) {
+                const card = document.createElement("div");
+                card.className = "card category-card";
 
-        function createCategoryCard(data) {
-            const card = document.createElement('div');
-            card.className = 'card category-card';
-            
-            const stars = '★'.repeat(Math.round(data.stats.avg_rating)) + '☆'.repeat(5 - Math.round(data.stats.avg_rating));
-            
-            card.innerHTML = `
+                // Handle both old and new data formats
+                const metadata = data.metadata || {};
+                const totalReviews =
+                    metadata.total_reviews || data.total_reviews || 0;
+                const avgRating =
+                    metadata.avg_rating || data.stats?.avg_rating || 0;
+
+                const stars =
+                    "★".repeat(Math.round(avgRating)) +
+                    "☆".repeat(5 - Math.round(avgRating));
+
+                card.innerHTML = `
                 <div class="card-header">
                     <h2>${data.category}</h2>
-                    <p class="mb-0">Based on ${data.total_reviews.toLocaleString()} customer reviews | Avg Rating: <span class="rating-stars">${stars}</span> ${data.stats.avg_rating.toFixed(1)}</p>
+                    <p class="mb-0">Based on ${totalReviews.toLocaleString()} customer reviews | Avg Rating: <span class="rating-stars">${stars}</span> ${avgRating.toFixed(1)}</p>
                 </div>
                 <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-8">
-                            <h5>Sentiment Analysis</h5>
-                            ${createSentimentChart(data.stats.sentiment_distribution)}
-                        </div>
+
+                    ${
+                        data.customer_insights
+                            ? `
+                    <div class="alert alert-info mb-4">
+                        <h5><i class="fas fa-robot"></i> Customer Insights</h5>
+                        ${formatCustomerInsights(data.customer_insights)}
+                        <small class="text-muted">Generated by ${metadata.generation_info?.model_used || "AI"} in ${(metadata.generation_info?.generation_time || 0).toFixed(1)}s</small>
                     </div>
-                    
-                    ${data.buying_guide ? `
+                    `
+                            : data.buying_guide
+                              ? `
                     <div class="alert alert-info">
                         <h5><i class="fas fa-robot"></i> ${data.buying_guide.title}</h5>
                         ${formatBuyingGuide(data.buying_guide)}
                         <small class="text-muted">Generated by ${data.buying_guide.model_used} in ${data.buying_guide.generation_time.toFixed(1)}s</small>
                     </div>
-                    ` : data.ai_content ? `
+                    `
+                              : data.ai_content
+                                ? `
                     <div class="alert alert-info">
                         <h5><i class="fas fa-robot"></i> AI-Generated Buying Guide (Legacy Format)</h5>
                         ${formatAIContent(data.ai_content.comparison_summary)}
                         <small class="text-muted">Generated by ${data.ai_content.model_used} in ${data.ai_content.generation_time.toFixed(1)}s</small>
                     </div>
-                    ` : ''}
-                    
-                    <h5>Top Recommended Products</h5>
-                    <div class="row">
-                        ${data.top_products.map((product, index) => createProductCard(product, data.sample_reviews[product.name] || [], index + 1)).join('')}
-                    </div>
+                    `
+                                : ""
+                    }
+
+                    ${
+                        data.recommendations
+                            ? `
+                        ${
+                            data.recommendations.top_picks &&
+                            data.recommendations.top_picks.length > 0
+                                ? `
+                        <h5 class="text-success mb-3">
+                            <i class="fas fa-thumbs-up"></i> Top Recommendations
+                        </h5>
+                        <div class="row mb-4">
+                            ${data.recommendations.top_picks.map((product, index) => createTopPickCard(product, index + 1)).join("")}
+                        </div>
+                        `
+                                : ""
+                        }
+
+                        ${
+                            data.recommendations.avoid_products &&
+                            data.recommendations.avoid_products.length > 0
+                                ? `
+                        <h5 class="text-warning mb-3">
+                            <i class="fas fa-exclamation-triangle"></i> Consider Carefully
+                        </h5>
+                        <div class="row mb-4">
+                            ${data.recommendations.avoid_products.map((product, index) => createAvoidProductCard(product, index + 1)).join("")}
+                        </div>
+                        `
+                                : ""
+                        }
+                    `
+                            : data.top_products
+                              ? `
+                        <h5>Top Recommended Products</h5>
+                        <div class="row">
+                            ${data.top_products.map((product, index) => createProductCard(product, data.sample_reviews[product.name] || [], index + 1)).join("")}
+                        </div>
+                    `
+                              : ""
+                    }
                 </div>
             `;
-            
-            return card;
-        }
 
-        function formatMarkdown(text) {
-            // Use marked.js for proper markdown rendering
-            try {
-                // Configure marked for better rendering
-                marked.setOptions({
-                    breaks: true,
-                    gfm: true,
-                    headerIds: false,
-                    mangle: false
-                });
-                
-                // Render markdown to HTML
-                const html = marked.parse(text);
-                
-                // Wrap in markdown-body class for styling
-                return `<div class="markdown-body">${html}</div>`;
-            } catch (error) {
-                console.log('Markdown parsing failed:', error);
-                // Fallback to simple text display
-                return `<div class="markdown-body"><pre>${text}</pre></div>`;
+                return card;
             }
-        }
 
-        function formatBuyingGuide(guide) {
-            // New structured format - cleaner and more reliable
-            return `
+            function formatMarkdown(text) {
+                // Use marked.js for proper markdown rendering
+                try {
+                    // marked.js options are now set globally
+                    const html = marked.parse(text || ""); // Ensure text is not null/undefined
+
+                    // Wrap in markdown-body class for styling
+                    return `<div class="markdown-body">${html}</div>`;
+                } catch (error) {
+                    return `<div class="markdown-body"><pre>${text}</pre></div>`;
+                }
+            }
+
+            function formatBuyingGuide(guide) {
+                // New structured format - cleaner and more reliable
+                return `
                 <div class="buying-guide-content">
-                    ${guide.pros && guide.pros.length > 0 ? `
+                    ${
+                        guide.pros && guide.pros.length > 0
+                            ? `
                     <div class="analysis-section mb-4">
                         <h6 class="text-success mb-3">
                             <i class="fas fa-check-circle"></i> Key Strengths
                         </h6>
                         <div class="row">
-                            ${guide.pros.map(pro => `
+                            ${guide.pros
+                                .map(
+                                    (pro) => `
                                 <div class="col-md-6 mb-2">
                                     <div class="d-flex align-items-start">
                                         <span class="badge bg-success me-2 mt-1">✓</span>
                                         <span>${pro}</span>
                                     </div>
                                 </div>
-                            `).join('')}
+                            `,
+                                )
+                                .join("")}
                         </div>
                     </div>
-                    ` : ''}
-                    
-                    ${guide.cons && guide.cons.length > 0 ? `
+                    `
+                            : ""
+                    }
+
+                    ${
+                        guide.cons && guide.cons.length > 0
+                            ? `
                     <div class="analysis-section mb-4">
                         <h6 class="text-warning mb-3">
                             <i class="fas fa-exclamation-triangle"></i> Important Considerations
                         </h6>
                         <div class="row">
-                            ${guide.cons.map(con => `
+                            ${guide.cons
+                                .map(
+                                    (con) => `
                                 <div class="col-md-6 mb-2">
                                     <div class="d-flex align-items-start">
                                         <span class="badge bg-warning me-2 mt-1">!</span>
                                         <span>${con}</span>
                                     </div>
                                 </div>
-                            `).join('')}
+                            `,
+                                )
+                                .join("")}
                         </div>
                     </div>
-                    ` : ''}
-                    
-                    ${guide.recommendation ? `
+                    `
+                            : ""
+                    }
+
+                    ${
+                        guide.recommendation
+                            ? `
                     <div class="analysis-section mb-3">
                         <div class="card border-primary">
                             <div class="card-body">
@@ -372,398 +599,675 @@
                             </div>
                         </div>
                     </div>
-                    ` : ''}
-                    
-                    ${guide.rating ? `
+                    `
+                            : ""
+                    }
+
+                    ${
+                        guide.rating
+                            ? `
                     <div class="analysis-section">
                         <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded">
                             <div>
                                 <strong class="text-primary">Overall Assessment:</strong>
                                 <div class="mt-1">
-                                    ${Array.from({length: 5}, (_, i) => 
-                                        `<i class="fas fa-star ${i < Math.round(guide.rating) ? 'text-warning' : 'text-muted'}"></i>`
-                                    ).join('')}
+                                    ${Array.from(
+                                        { length: 5 },
+                                        (_, i) =>
+                                            `<i class="fas fa-star ${i < Math.round(guide.rating) ? "text-warning" : "text-muted"}"></i>`,
+                                    ).join("")}
                                     <span class="ms-2 fw-bold">${guide.rating}/5</span>
                                 </div>
                             </div>
-                            ${guide.total_reviews ? `
+                            ${
+                                guide.total_reviews
+                                    ? `
                             <div class="text-end">
                                 <small class="text-muted">Based on analysis of</small><br>
                                 <strong>${guide.total_reviews.toLocaleString()} reviews</strong>
                             </div>
-                            ` : ''}
+                            `
+                                    : ""
+                            }
                         </div>
                     </div>
-                    ` : ''}
+                    `
+                            : ""
+                    }
                 </div>
             `;
-        }
+            }
 
-        function formatAIContent(content) {
-            // Try to parse as JSON first (fine-tuned model format)
-            try {
-                // Clean up the content and extract JSON
-                let cleanContent = content;
-                
-                // Remove escape characters and clean up
-                cleanContent = cleanContent.replace(/\\n/g, ' ');
-                cleanContent = cleanContent.replace(/\\/g, '');
-                
-                // Remove Unicode characters
-                cleanContent = cleanContent.replace(/[""'']/g, '"');
-                cleanContent = cleanContent.replace(/，/g, ',');
-                cleanContent = cleanContent.replace(/：/g, ':');
-                cleanContent = cleanContent.replace(/、/g, ',');
-                
-                // Fix common field name typos
-                cleanContent = cleanContent.replace(/"total_review":/g, '"total_reviews":');
-                cleanContent = cleanContent.replace(/"con":/g, '"cons":');
-                
-                // Find the JSON object more aggressively
-                let jsonText = null;
-                
-                // Extract JSON more aggressively
-                let startPos = cleanContent.indexOf('{');
-                if (startPos !== -1) {
-                    let braceCount = 0;
-                    let endPos = startPos;
-                    
-                    for (let i = startPos; i < cleanContent.length; i++) {
-                        if (cleanContent[i] === '{') braceCount++;
-                        if (cleanContent[i] === '}') {
-                            braceCount--;
-                            if (braceCount === 0) {
-                                endPos = i + 1;
-                                break;
+            function formatAIContent(content) {
+                // Try to parse as JSON first (fine-tuned model format)
+                try {
+                    // Clean up the content and extract JSON
+                    let cleanContent = content;
+
+                    // --- REMOVED: These lines were stripping newlines and backslashes ---
+                    // cleanContent = cleanContent.replace(/\\n/g, ' ');
+                    // cleanContent = cleanContent.replace(/\\/g, '');
+                    // ------------------------------------------------------------------
+
+                    // Remove Unicode characters that might appear from LLM
+                    cleanContent = cleanContent.replace(/[\"\'\']/g, '"'); // Ensure consistent quotes
+                    cleanContent = cleanContent.replace(/，/g, ","); // Chinese comma
+                    cleanContent = cleanContent.replace(/：/g, ":"); // Chinese colon
+                    cleanContent = cleanContent.replace(/、/g, ","); // Japanese comma
+
+                    // Fix common field name typos (still relevant for robust parsing)
+                    cleanContent = cleanContent.replace(
+                        /"total_review":/g,
+                        '"total_reviews":',
+                    );
+                    cleanContent = cleanContent.replace(/"con":/g, '"cons":');
+
+                    // Find the JSON object more aggressively
+                    let jsonText = null;
+
+                    // Extract JSON more aggressively
+                    let startPos = cleanContent.indexOf("{");
+                    if (startPos !== -1) {
+                        let braceCount = 0;
+                        let endPos = startPos;
+
+                        for (let i = startPos; i < cleanContent.length; i++) {
+                            if (cleanContent[i] === "{") braceCount++;
+                            if (cleanContent[i] === "}") {
+                                braceCount--;
+                                if (braceCount === 0) {
+                                    endPos = i + 1;
+                                    break;
+                                }
                             }
                         }
+
+                        if (braceCount === 0) {
+                            jsonText = cleanContent.substring(startPos, endPos);
+                        }
                     }
-                    
-                    if (braceCount === 0) {
-                        jsonText = cleanContent.substring(startPos, endPos);
-                    }
-                }
-                
-                if (jsonText) {
-                    // Additional cleaning for malformed JSON
-                    jsonText = jsonText.replace(/,\s*}/g, '}');  // Remove trailing commas
-                    jsonText = jsonText.replace(/,\s*]/g, ']');  // Remove trailing commas in arrays
-                    jsonText = jsonText.replace(/\]\]/g, ']');   // Fix double closing brackets
-                    
-                    const parsed = JSON.parse(jsonText);
-                    
-                    // Ensure arrays for pros and cons
-                    let pros = parsed.pros || [];
-                    let cons = parsed.cons || [];
-                    
-                    // Convert single strings to arrays
-                    if (typeof pros === 'string') pros = [pros];
-                    if (typeof cons === 'string') cons = [cons];
-                    
-                    // Filter out empty or invalid entries
-                    pros = pros.filter(item => item && typeof item === 'string' && item.trim());
-                    cons = cons.filter(item => item && typeof item === 'string' && item.trim());
-                    
-                    // Format as beautiful, readable content (not showing JSON structure)
-                    return `
+
+                    if (jsonText) {
+                        // Additional cleaning for malformed JSON
+                        jsonText = jsonText.replace(/,\s*}/g, "}"); // Remove trailing commas before }
+                        jsonText = jsonText.replace(/,\s*]/g, "]"); // Remove trailing commas in arrays
+                        jsonText = jsonText.replace(/\]\]/g, "]"); // Fix double closing brackets
+
+                        const parsed = JSON.parse(jsonText);
+
+                        // Ensure arrays for pros and cons
+                        let pros = parsed.pros || [];
+                        let cons = parsed.cons || [];
+
+                        // Convert single strings to arrays
+                        if (typeof pros === "string") pros = [pros];
+                        if (typeof cons === "string") cons = [cons];
+
+                        // Filter out empty or invalid entries
+                        pros = pros.filter(
+                            (item) =>
+                                item && typeof item === "string" && item.trim(),
+                        );
+                        cons = cons.filter(
+                            (item) =>
+                                item && typeof item === "string" && item.trim(),
+                        );
+
+                        // Format as beautiful, readable content (not showing JSON structure)
+                        // Now pass recommendation through formatMarkdown if it's treated as markdown
+                        return `
                         <div class="ai-analysis-content">
-                            ${pros.length > 0 ? `
+                            ${
+                                pros.length > 0
+                                    ? `
                             <div class="analysis-section mb-4">
                                 <h6 class="text-success mb-3">
                                     <i class="fas fa-check-circle"></i> Key Strengths
                                 </h6>
                                 <div class="row">
-                                    ${pros.map(pro => `
+                                    ${pros
+                                        .map(
+                                            (pro) => `
                                         <div class="col-md-6 mb-2">
                                             <div class="d-flex align-items-start">
                                                 <span class="badge bg-success me-2 mt-1">✓</span>
                                                 <span>${pro}</span>
                                             </div>
                                         </div>
-                                    `).join('')}
+                                    `,
+                                        )
+                                        .join("")}
                                 </div>
                             </div>
-                            ` : ''}
-                            
-                            ${cons.length > 0 ? `
+                            `
+                                    : ""
+                            }
+
+                            ${
+                                cons.length > 0
+                                    ? `
                             <div class="analysis-section mb-4">
                                 <h6 class="text-warning mb-3">
                                     <i class="fas fa-exclamation-triangle"></i> Important Considerations
                                 </h6>
                                 <div class="row">
-                                    ${cons.map(con => `
+                                    ${cons
+                                        .map(
+                                            (con) => `
                                         <div class="col-md-6 mb-2">
                                             <div class="d-flex align-items-start">
                                                 <span class="badge bg-warning me-2 mt-1">!</span>
                                                 <span>${con}</span>
                                             </div>
                                         </div>
-                                    `).join('')}
+                                    `,
+                                        )
+                                        .join("")}
                                 </div>
                             </div>
-                            ` : ''}
-                            
-                            ${parsed.recommendation ? `
+                            `
+                                    : ""
+                            }
+
+                            ${
+                                parsed.recommendation
+                                    ? `
                             <div class="analysis-section mb-3">
                                 <div class="card border-primary">
                                     <div class="card-body">
                                         <h6 class="card-title text-primary mb-2">
                                             <i class="fas fa-lightbulb"></i> Expert Recommendation
                                         </h6>
-                                        <p class="card-text mb-0">${parsed.recommendation}</p>
+                                        <div class="markdown-content">${formatMarkdown(parsed.recommendation)}</div>
                                     </div>
                                 </div>
                             </div>
-                            ` : ''}
-                            
-                            ${parsed.rating ? `
+                            `
+                                    : ""
+                            }
+
+                            ${
+                                parsed.rating
+                                    ? `
                             <div class="analysis-section">
                                 <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded">
                                     <div>
                                         <strong class="text-primary">Overall Assessment:</strong>
                                         <div class="mt-1">
-                                            ${Array.from({length: 5}, (_, i) => 
-                                                `<i class="fas fa-star ${i < Math.round(parsed.rating) ? 'text-warning' : 'text-muted'}"></i>`
-                                            ).join('')}
+                                            ${Array.from(
+                                                { length: 5 },
+                                                (_, i) =>
+                                                    `<i class="fas fa-star ${i < Math.round(parsed.rating) ? "text-warning" : "text-muted"}"></i>`,
+                                            ).join("")}
                                             <span class="ms-2 fw-bold">${parsed.rating}/5</span>
                                         </div>
                                     </div>
-                                    ${parsed.total_reviews ? `
+                                    ${
+                                        parsed.total_reviews
+                                            ? `
                                     <div class="text-end">
                                         <small class="text-muted">Based on analysis of</small><br>
                                         <strong>${parsed.total_reviews.toLocaleString()} reviews</strong>
                                     </div>
-                                    ` : ''}
+                                    `
+                                            : ""
+                                    }
                                 </div>
                             </div>
-                            ` : ''}
+                            `
+                                    : ""
+                            }
                         </div>
                     `;
+                    }
+                } catch (e) {
                 }
-            } catch (e) {
-                // If JSON parsing fails, fall back to text display
-                console.log('JSON parsing failed, displaying as text:', e);
-                console.log('Content was:', content);
-            }
-            
-            // Check if we can manually extract some basic info from malformed JSON
-            if (content.includes('pros') || content.includes('recommendation') || content.includes('title')) {
-                try {
-                    // Extract information even from malformed JSON
-                    let title = 'Product Analysis';
-                    let pros = [];
-                    let cons = [];
-                    let recommendation = '';
-                    
-                    // Extract title from various patterns
-                    const titlePatterns = [
-                        /"title":\s*"([^"]*)"/, 
-                        /title.*?["']([^"']*)/,
-                        /Buying Guide[^"]*"([^"]*)/,
-                        /"([^"]*Buying Guide[^"]*)"/, 
-                        /"([^"]*Analysis[^"]*)"/ 
-                    ];
-                    
-                    for (const pattern of titlePatterns) {
-                        const match = content.match(pattern);
-                        if (match && match[1]) {
-                            title = match[1];
-                            break;
+
+                // Check if we can manually extract some basic info from malformed JSON
+                if (
+                    content.includes("pros") ||
+                    content.includes("recommendation") ||
+                    content.includes("title")
+                ) {
+                    try {
+                        // Extract information even from malformed JSON
+                        let title = "Product Analysis";
+                        let pros = [];
+                        let cons = [];
+                        let recommendation = "";
+
+                        // Extract title from various patterns
+                        const titlePatterns = [
+                            /"title":\s*"([^"]*)"/,
+                            /title.*?[\"']([^"']*)/,
+                            /Buying Guide[^"]*"([^"]*)/,
+                            /"([^"]*Buying Guide[^"]*)"/,
+                            /"([^"]*Analysis[^"]*)"/,
+                        ];
+
+                        for (const pattern of titlePatterns) {
+                            const match = content.match(pattern);
+                            if (match && match[1]) {
+                                title = match[1];
+                                break;
+                            }
                         }
-                    }
-                    
-                    // Extract pros from various patterns
-                    const prosPatterns = [
-                        /"pros":\s*\[([^\]]*)\]/,
-                        /pros.*?\[([^\]]*)\]/,
-                        /"pros_[^"]*":\s*\[([^\]]*)\]/,
-                        /Excellent[^"]*"([^"]*)"/, 
-                        /Good[^"]*"([^"]*)"/, 
-                        /Strong[^"]*"([^"]*)"/ 
-                    ];
-                    
-                    for (const pattern of prosPatterns) {
-                        const match = content.match(pattern);
-                        if (match && match[1]) {
-                            const extracted = match[1].split(/[,\n]/).map(p => 
-                                p.replace(/['"]/g, '').replace(/null/g, '').trim()
-                            ).filter(p => p && p.length > 5);
-                            pros = pros.concat(extracted);
+
+                        // Extract pros from various patterns
+                        const prosPatterns = [
+                            /"pros":\s*\[([^\]]*)\]/,
+                            /pros.*?\[([^\]]*)\]/,
+                            /"pros_[^"]*":\s*\[([^\]]*)\]/,
+                            /Excellent[^"]*"([^"]*)"/,
+                            /Good[^"]*"([^"]*)"/,
+                            /Strong[^"]*"([^"]*)"/,
+                        ];
+
+                        for (const pattern of prosPatterns) {
+                            const match = content.match(pattern);
+                            if (match && match[1]) {
+                                const extracted = match[1]
+                                    .split(/[,\\n]/)
+                                    .map((p) =>
+                                        p
+                                            .replace(/['"]/g, "")
+                                            .replace(/null/g, "")
+                                            .trim(),
+                                    )
+                                    .filter((p) => p && p.length > 5);
+                                pros = pros.concat(extracted);
+                            }
                         }
-                    }
-                    
-                    // Extract cons from various patterns
-                    const consPatterns = [
-                        /"cons":\s*\[([^\]]*)\]/,
-                        /cons.*?\[([^\]]*)\]/,
-                        /Limited[^"]*"([^"]*)"/, 
-                        /issues?[^"]*"([^"]*)"/ 
-                    ];
-                    
-                    for (const pattern of consPatterns) {
-                        const match = content.match(pattern);
-                        if (match && match[1]) {
-                            const extracted = match[1].split(/[,\n]/).map(c => 
-                                c.replace(/['"]/g, '').replace(/null/g, '').trim()
-                            ).filter(c => c && c.length > 5);
-                            cons = cons.concat(extracted);
+
+                        // Extract cons from various patterns
+                        const consPatterns = [
+                            /"cons":\s*\[([^\]]*)\]/,
+                            /cons.*?\[([^\]]*)\]/,
+                            /Limited[^"]*"([^"]*)"/,
+                            /issues?[^"]*"([^"]*)"/,
+                        ];
+
+                        for (const pattern of consPatterns) {
+                            const match = content.match(pattern);
+                            if (match && match[1]) {
+                                const extracted = match[1]
+                                    .split(/[,\\n]/)
+                                    .map((c) =>
+                                        c
+                                            .replace(/['"]/g, "")
+                                            .replace(/null/g, "")
+                                            .trim(),
+                                    )
+                                    .filter((c) => c && c.length > 5);
+                                cons = cons.concat(extracted);
+                            }
                         }
-                    }
-                    
-                    // Extract recommendation
-                    const recPatterns = [
-                        /"recommendation":\s*"([^"]*)"/, 
-                        /recommendation.*?["']([^"']*)/,
-                        /recommended[^"]*"([^"]*)"/ 
-                    ];
-                    
-                    for (const pattern of recPatterns) {
-                        const match = content.match(pattern);
-                        if (match && match[1]) {
-                            recommendation = match[1];
-                            break;
+
+                        // Extract recommendation
+                        const recPatterns = [
+                            /"recommendation":\s*"([^"]*)"/,
+                            /recommendation.*?[\"']([^"']*)/,
+                            /recommended[^"]*"([^"]*)"/,
+                        ];
+
+                        for (const pattern of recPatterns) {
+                            const match = content.match(pattern);
+                            if (match && match[1]) {
+                                recommendation = match[1];
+                                break;
+                            }
                         }
-                    }
-                    
-                    // Remove duplicates and clean up
-                    pros = [...new Set(pros)].slice(0, 4);
-                    cons = [...new Set(cons)].slice(0, 3);
-                    
-                    if (title || pros.length || cons.length || recommendation) {
-                        return `
+
+                        // Remove duplicates and clean up
+                        pros = [...new Set(pros)].slice(0, 4);
+                        cons = [...new Set(cons)].slice(0, 3);
+
+                        if (
+                            title ||
+                            pros.length ||
+                            cons.length ||
+                            recommendation
+                        ) {
+                            // Pass recommendation through formatMarkdown here as well
+                            return `
                             <div class="ai-analysis-content">
                                 <h6 class="mb-3"><strong>${title}</strong></h6>
-                                
-                                ${pros.length > 0 ? `
+
+                                ${
+                                    pros.length > 0
+                                        ? `
                                 <div class="analysis-section mb-3">
                                     <h6 class="text-success mb-2">
                                         <i class="fas fa-check-circle"></i> Key Strengths
                                     </h6>
-                                    ${pros.map(pro => `
+                                    ${pros
+                                        .map(
+                                            (pro) => `
                                         <div class="d-flex align-items-start mb-1">
                                             <span class="badge bg-success me-2 mt-1">✓</span>
                                             <span>${pro}</span>
                                         </div>
-                                    `).join('')}
+                                    `,
+                                        )
+                                        .join("")}
                                 </div>
-                                ` : ''}
-                                
-                                ${cons.length > 0 ? `
+                                `
+                                        : ""
+                                }
+
+                                ${
+                                    cons.length > 0
+                                        ? `
                                 <div class="analysis-section mb-3">
                                     <h6 class="text-warning mb-2">
                                         <i class="fas fa-exclamation-triangle"></i> Important Considerations
                                     </h6>
-                                    ${cons.map(con => `
+                                    ${cons
+                                        .map(
+                                            (con) => `
                                         <div class="d-flex align-items-start mb-1">
                                             <span class="badge bg-warning me-2 mt-1">!</span>
                                             <span>${con}</span>
                                         </div>
-                                    `).join('')}
+                                    `,
+                                        )
+                                        .join("")}
                                 </div>
-                                ` : ''}
-                                
-                                ${recommendation ? `
+                                `
+                                        : ""
+                                }
+
+                                ${
+                                    recommendation
+                                        ? `
                                 <div class="analysis-section">
                                     <div class="card border-primary">
                                         <div class="card-body">
                                             <h6 class="card-title text-primary mb-2">
                                                 <i class="fas fa-lightbulb"></i> Expert Recommendation
                                             </h6>
-                                            <p class="card-text mb-0">${recommendation}</p>
+                                            <div class="markdown-content">${formatMarkdown(recommendation)}</div>
                                         </div>
                                     </div>
                                 </div>
-                                ` : ''}
+                                `
+                                        : ""
+                                }
                             </div>
                         `;
+                        }
+                    } catch (manualError) {
                     }
-                } catch (manualError) {
-                    console.log('Manual parsing also failed:', manualError);
                 }
-            }
-            
-            // Fallback: display as plain text (baseline model format) - ALWAYS show something
-            console.log('Falling back to plain text display');
-            return `
+
+                return `
                 <div class="alert alert-secondary">
                     <h6>AI Analysis (Raw Output):</h6>
                     <pre style="white-space: pre-wrap; font-size: 0.9em;">${content}</pre>
                 </div>
             `;
-        }
-
-        function createSentimentChart(sentiment) {
-            const total = Object.values(sentiment).reduce((a, b) => a + b, 0);
-            const positive = sentiment.positive || 0;
-            const negative = sentiment.negative || 0;
-            const neutral = sentiment.neutral || 0;
-            
-            return `
-                <div class="progress" style="height: 25px;">
-                    <div class="progress-bar bg-success" style="width: ${(positive/total*100).toFixed(1)}%" title="Positive: ${positive.toLocaleString()}">
-                        ${(positive/total*100).toFixed(1)}% Positive
-                    </div>
-                    <div class="progress-bar bg-secondary" style="width: ${(neutral/total*100).toFixed(1)}%" title="Neutral: ${neutral.toLocaleString()}">
-                        ${(neutral/total*100).toFixed(1)}% Neutral
-                    </div>
-                    <div class="progress-bar bg-danger" style="width: ${(negative/total*100).toFixed(1)}%" title="Negative: ${negative.toLocaleString()}">
-                        ${(negative/total*100).toFixed(1)}% Negative
-                    </div>
-                </div>
-            `;
-        }
-
-        function createProductCard(product, reviews, rank) {
-            const stars = '★'.repeat(Math.round(product.avg_rating)) + '☆'.repeat(5 - Math.round(product.avg_rating));
-            
-            return `
-                <div class="col-md-4">
-                    <div class="card product-card h-100">
-                        <div class="card-header">
-                            <h6 class="card-title">#${rank} ${product.name}</h6>
-                            <div class="rating-stars">${stars}</div>
-                            <small class="text-muted">${product.avg_rating.toFixed(1)}/5 (${product.review_count} reviews)</small>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-2">
-                                <strong>Score:</strong> ${product.combined_score.toFixed(2)}<br>
-                                <strong>Positive Reviews:</strong> ${(product.positive_ratio * 100).toFixed(1)}%
-                            </div>
-                            
-                            ${reviews.length > 0 ? `
-                                <h7>Customer Quotes:</h7>
-                                ${reviews.slice(0, 2).map(review => `
-                                    <div class="review-quote">
-                                        <div class="d-flex justify-content-between mb-1">
-                                            <span class="sentiment-${review.sentiment}">${review.sentiment.toUpperCase()}</span>
-                                            <span class="rating-stars">${'★'.repeat(review.rating)}</span>
-                                        </div>
-                                        "${review.text.substring(0, 150)}${review.text.length > 150 ? '...' : ''}"
-                                    </div>
-                                `).join('')}
-                            ` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Initialize the page by detecting available models
-        async function initializePage() {
-            console.log('Detecting available models...');
-            const modelsFound = await detectAvailableModels();
-            
-            if (modelsFound) {
-                populateModelSelector();
-                console.log(`Found ${Object.keys(modelConfigs).length} models`);
-            } else {
-                document.getElementById('categories-container').innerHTML = 
-                    '<div class="alert alert-warning">No model outputs found. Please run the pipeline first to generate data.</div>';
             }
-        }
-        
-        // Start detection when page loads
-        document.addEventListener('DOMContentLoaded', initializePage);
-    </script>
-</body>
+
+            function formatCustomerInsights(insights) {
+                return `
+                <div class="customer-insights-content">
+                    ${
+                        insights.why_customers_choose
+                            ? `
+                    <div class="insights-section mb-3">
+                        <div class="markdown-content">${formatMarkdown(insights.why_customers_choose)}</div>
+                    </div>
+                    `
+                            : ""
+                    }
+
+                    ${
+                        insights.positive_themes &&
+                        insights.positive_themes.length > 0
+                            ? `
+                    <div class="insights-section mb-3">
+                        <h6 class="text-success mb-2">
+                            <i class="fas fa-thumbs-up"></i> What Customers Love
+                        </h6>
+                        <div class="row">
+                            ${insights.positive_themes
+                                .map(
+                                    (theme) => `
+                                <div class="col-md-6 mb-1">
+                                    <div class="d-flex align-items-start">
+                                        <span class="badge bg-success me-2 mt-1">✓</span>
+                                        <span>${theme}</span>
+                                    </div>
+                                </div>
+                            `,
+                                )
+                                .join("")}
+                        </div>
+                    </div>
+                    `
+                            : ""
+                    }
+
+                    ${
+                        insights.negative_themes &&
+                        insights.negative_themes.length > 0
+                            ? `
+                    <div class="insights-section mb-2">
+                        <h6 class="text-warning mb-2">
+                            <i class="fas fa-exclamation-circle"></i> Common Concerns
+                        </h6>
+                        <div class="row">
+                            ${insights.negative_themes
+                                .map(
+                                    (theme) => `
+                                <div class="col-md-6 mb-1">
+                                    <div class="d-flex align-items-start">
+                                        <span class="badge bg-warning me-2 mt-1">!</span>
+                                        <span>${theme}</span>
+                                    </div>
+                                </div>
+                            `,
+                                )
+                                .join("")}
+                        </div>
+                    </div>
+                    `
+                            : ""
+                    }
+                </div>
+            `;
+            }
+
+            function createTopPickCard(product, rank) {
+                const stars =
+                    "★".repeat(Math.round(product.rating)) +
+                    "☆".repeat(5 - Math.round(product.rating));
+                return `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card product-card h-100 border-success">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title text-success">${rank}. ${product.name}</h5>
+                            <p class="card-text text-muted">Rating: ${product.rating.toFixed(1)}/5 <span class="rating-stars">${stars}</span> (${product.review_count.toLocaleString()} reviews)</p>
+                            ${
+                                product.positive_quotes &&
+                                product.positive_quotes.length > 0
+                                    ? `
+                                <div class="mt-auto">
+                                    <h6>Customer Highlights:</h6>
+                                    ${product.positive_quotes
+                                        .map(
+                                            (quote) => `
+                                        <div class="review-quote border-success">
+                                            <p class="mb-0">"${quote.text}"</p>
+                                            <small class="text-muted">${quote.rating}/5</small>
+                                        </div>
+                                    `,
+                                        )
+                                        .join("")}
+                                </div>
+                            `
+                                    : ""
+                            }
+                        </div>
+                    </div>
+                </div>
+            `;
+            }
+
+            function createAvoidProductCard(product, rank) {
+                const stars =
+                    "★".repeat(Math.round(product.rating)) +
+                    "☆".repeat(5 - Math.round(product.rating));
+                return `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card product-card h-100 border-warning">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title text-warning">${rank}. ${product.name}</h5>
+                            ${
+                                product.warning_quotes &&
+                                product.warning_quotes.length > 0
+                                    ? `
+                                <div class="mt-auto">
+                                    <h6>Customer Warnings:</h6>
+                                    ${product.warning_quotes
+                                        .map(
+                                            (quote) => `
+                                        <div class="review-quote border-warning">
+                                            <p class="mb-0">"${quote.text}"</p>
+                                            <small class="text-muted">${quote.rating !== null ? `${quote.rating}/5` : "N/A Rating"}</small>
+                                        </div>
+                                    `,
+                                        )
+                                        .join("")}
+                                </div>
+                            `
+                                    : ""
+                            }
+                        </div>
+                    </div>
+                </div>
+            `;
+            }
+
+            function createProductCard(product, sampleReviews, rank) {
+                const positiveReviews = sampleReviews
+                    .filter((r) => r.sentiment === "positive")
+                    .slice(0, 2);
+                const negativeReviews = sampleReviews
+                    .filter((r) => r.sentiment === "negative")
+                    .slice(0, 1);
+                const stars =
+                    "★".repeat(Math.round(product.avg_rating)) +
+                    "☆".repeat(5 - Math.round(product.avg_rating));
+
+                return `
+                <div class="col-md-4 mb-4">
+                    <div class="card product-card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">${rank}. ${product.name}</h5>
+                            <p class="card-text text-muted">Avg Rating: ${product.avg_rating.toFixed(1)}/5 <span class="rating-stars">${stars}</span></p>
+                            <p class="card-text text-muted">${product.review_count.toLocaleString()} reviews</p>
+                            ${
+                                positiveReviews.length > 0
+                                    ? `
+                                <h6>Positive Feedback:</h6>
+                                ${positiveReviews
+                                    .map(
+                                        (review) => `
+                                    <div class="review-quote border-success">"${review.text}" <small class="sentiment-positive">(${review.rating}/5)</small></div>
+                                `,
+                                    )
+                                    .join("")}
+                            `
+                                    : ""
+                            }
+                            ${
+                                negativeReviews.length > 0
+                                    ? `
+                                <h6>Concerns:</h6>
+                                ${negativeReviews
+                                    .map(
+                                        (review) => `
+                                    <div class="review-quote border-warning">"${review.text}" <small class="sentiment-negative">(${review.rating}/5)</small></div>
+                                `,
+                                    )
+                                    .join("")}
+                            `
+                                    : ""
+                            }
+                        </div>
+                    </div>
+                </div>
+            `;
+            }
+
+            function displaySummaryStats(stats) {
+                document.getElementById("statsTotalProducts").textContent =
+                    stats.unique_products.toLocaleString();
+                document.getElementById("statsTotalReviews").textContent =
+                    stats.total_reviews.toLocaleString();
+                document.getElementById("statsAvgRating").textContent =
+                    stats.average_rating.toFixed(2) + "/5";
+
+                const total =
+                    stats.sentiment_distribution.positive +
+                    stats.sentiment_distribution.negative +
+                    stats.sentiment_distribution.neutral;
+                const percentPositive =
+                    total > 0
+                        ? (
+                              (stats.sentiment_distribution.positive / total) *
+                              100
+                          ).toFixed(1)
+                        : 0;
+                const percentNegative =
+                    total > 0
+                        ? (
+                              (stats.sentiment_distribution.negative / total) *
+                              100
+                          ).toFixed(1)
+                        : 0;
+                const percentNeutral =
+                    total > 0
+                        ? (
+                              (stats.sentiment_distribution.neutral / total) *
+                              100
+                          ).toFixed(1)
+                        : 0;
+
+                document.getElementById("percentPositive").textContent =
+                    percentPositive;
+                document.getElementById("percentNegative").textContent =
+                    percentNegative;
+                document.getElementById("percentNeutral").textContent =
+                    percentNeutral;
+
+                document.getElementById("progressPositive").style.width =
+                    `${percentPositive}%`;
+                document.getElementById("progressNegative").style.width =
+                    `${percentNegative}%`;
+                document.getElementById("progressNeutral").style.width =
+                    `${percentNeutral}%`;
+
+                document
+                    .getElementById("progressPositive")
+                    .setAttribute("aria-valuenow", percentPositive);
+                document
+                    .getElementById("progressNegative")
+                    .setAttribute("aria-valuenow", percentNegative);
+                document
+                    .getElementById("progressNeutral")
+                    .setAttribute("aria-valuenow", percentNeutral);
+
+                document.getElementById("summaryStats").style.display = "block";
+            }
+
+            async function initializePage() {
+                await detectAvailableModels();
+            }
+
+            // Initialize when DOM is fully loaded
+            document.addEventListener("DOMContentLoaded", initializePage);
+        </script>
+    </body>
 </html>

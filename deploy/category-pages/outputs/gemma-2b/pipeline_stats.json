@@ -1,11 +1,11 @@
 {
-  "total_reviews": 2920,
-  "unique_products": 7,
-  "categories_covered": 3,
+  "total_reviews": 28025,
+  "unique_products": 14,
+  "categories_covered": 5,
   "sentiment_distribution": {
-    "positive": 2331,
-    "negative": 370,
-    "neutral": 219
+    "positive": 22784,
+    "negative": 3054,
+    "neutral": 2187
   },
-  "average_rating": 4.583247156153051
+  "average_rating": 4.533924004354615
 }
