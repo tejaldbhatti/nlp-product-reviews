@@ -183,7 +183,6 @@ class SummarizationPipeline:
 
         return warning_quotes
 
-
     def run_pipeline(self, sentiment_csv: str,
                      _category_csv: str) -> Dict[str, Dict]:
         """Run the complete pipeline with AI content generation"""
@@ -391,8 +390,6 @@ class SummarizationPipeline:
             cons.append("Some quality and performance concerns noted")
 
         return pros[:3], cons[:2]  # Limit results
-
-
 
     def get_sample_reviews_from_sentiment_data(
             self, sentiment_df: pd.DataFrame, top_products: List[Dict]

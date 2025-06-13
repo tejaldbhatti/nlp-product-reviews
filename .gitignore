@@ -11,3 +11,5 @@ generated_guides/
 roboreviews-mistral-finetuned
 roboreviews-qwen-finetuned
 __pycache__
+roboreviews-gemma-finetuned
+roboreviews-gemma-simple

@@ -18,6 +18,11 @@ from transformers import (
 )
 
 try:
+    from transformers import Gemma3ForCausalLM
+except ImportError:
+    Gemma3ForCausalLM = None
+
+try:
     from peft import PeftModel
 except ImportError:
     PeftModel = None
@@ -55,6 +60,16 @@ def create_model_pipeline(model_type: str):
             "max_tokens": 384,
             "quantization": False
         },
+        "gemma-3": {
+            "path": "google/gemma-3-1b-it",  # Use instruction-tuned version
+            "template": lambda prompt: (
+                f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+            ),
+            "extract_key": "<start_of_turn>model",
+            "max_tokens": 400,
+            "quantization": False,
+            "model_class": "gemma3"  # Special flag for Gemma-3 handling
+        },
         "mistral": {
             "path": "mistralai/Mistral-7B-Instruct-v0.2",
             "template": lambda prompt: f"<s>[INST] {prompt} [/INST]",
@@ -81,6 +96,18 @@ def create_model_pipeline(model_type: str):
             "max_tokens": 512,
             "quantization": False,
             "is_finetuned": True
+        },
+        "gemma-3-finetuned": {
+            "path": "./roboreviews-gemma-finetuned",
+            "base_model": "google/gemma-3-1b-it",
+            "template": lambda prompt: (
+                f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
+            ),
+            "extract_key": "<start_of_turn>model",
+            "max_tokens": 400,
+            "quantization": False,
+            "is_finetuned": True,
+            "model_class": "gemma3"  # Special flag for Gemma-3 handling
         },
         "gemini-pro-flash": {
             "type": "api",
@@ -143,16 +170,44 @@ def _load_model(config, model_kwargs, use_mps):
             raise ImportError("peft package not found. Install with: pip install peft")
 
         base_model_path = config["base_model"]
-        base_model = AutoModelForCausalLM.from_pretrained(
-            base_model_path, **model_kwargs)
+        
+        # Handle Gemma-3 models specifically
+        if config.get("model_class") == "gemma3":
+            if Gemma3ForCausalLM is None:
+                raise ImportError("Gemma3ForCausalLM not available. Please update transformers.")
+            
+            # Set MPS environment for Gemma-3 stability
+            if use_mps:
+                import os
+                os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
+                os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+            
+            base_model = Gemma3ForCausalLM.from_pretrained(
+                base_model_path, **model_kwargs)
+        else:
+            base_model = AutoModelForCausalLM.from_pretrained(
+                base_model_path, **model_kwargs)
 
         if use_mps:
             base_model = base_model.to("mps")
 
         return PeftModel.from_pretrained(base_model, config["path"])
 
-    model = AutoModelForCausalLM.from_pretrained(
-        config["path"], **model_kwargs)
+    # For non-finetuned models, check if it's Gemma-3
+    if config.get("model_class") == "gemma3":
+        if Gemma3ForCausalLM is None:
+            raise ImportError("Gemma3ForCausalLM not available. Please update transformers.")
+        
+        if use_mps:
+            import os
+            os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
+            os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+        
+        model = Gemma3ForCausalLM.from_pretrained(
+            config["path"], **model_kwargs)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            config["path"], **model_kwargs)
 
     if use_mps:
         model = model.to("mps")
@@ -187,6 +242,26 @@ def _prepare_pipeline_kwargs(config, model, tokenizer, model_type, use_mps):
         pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
         if use_mps:
             pipe_kwargs["device"] = "mps"
+    elif model_type.lower() in ["gemma-3", "gemma-3-finetuned"]:
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
+        pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
+        
+        # Different settings for fine-tuned vs base models
+        if model_type.lower() == "gemma-3-finetuned":
+            pipe_kwargs["repetition_penalty"] = 1.05  # Lower for fine-tuned
+            pipe_kwargs["max_new_tokens"] = 400
+        else:
+            pipe_kwargs["repetition_penalty"] = 1.1
+        
+        # Conservative settings for MPS stability
+        if use_mps:
+            pipe_kwargs["device"] = "mps"
+            pipe_kwargs["do_sample"] = False  # Use greedy decoding for stability
+            pipe_kwargs["temperature"] = None  # Disable sampling parameters
+            pipe_kwargs["top_p"] = None
+            pipe_kwargs["top_k"] = None
 
     return pipe_kwargs
 
@@ -203,7 +278,27 @@ def generate_text(pipe_or_model, template_fn, extract_key: str,
                 raise ValueError(f"Unsupported API provider: {provider}")
         else:
             formatted_prompt = template_fn(prompt)
-            result = pipe_or_model(formatted_prompt)
+            
+            # Special handling for Gemma-3 models on MPS
+            if (model_config and model_config.get("model_class") == "gemma3" and 
+                torch.backends.mps.is_available()):
+                
+                # Use conservative settings for all Gemma-3 models on MPS
+                # Fine-tuned models will rely on their learned patterns with greedy decoding
+                generation_kwargs = {
+                    "max_new_tokens": model_config.get("max_tokens", 400),
+                    "do_sample": False,  # Greedy decoding for MPS stability
+                    "pad_token_id": pipe_or_model.tokenizer.eos_token_id,
+                    "eos_token_id": pipe_or_model.tokenizer.eos_token_id,
+                    "repetition_penalty": 1.05 if model_config.get("is_finetuned") else 1.1,
+                    "return_full_text": True,
+                }
+                
+                result = pipe_or_model(formatted_prompt, **generation_kwargs)
+            else:
+                # Standard generation for other models
+                result = pipe_or_model(formatted_prompt)
+            
             generated_text = result[0]["generated_text"]
 
             if extract_key in generated_text:
