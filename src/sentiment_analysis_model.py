@@ -214,7 +214,7 @@ cm = confusion_matrix(y_test, y_pred, labels=class_labels) # Calculate confusion
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_labels)
 
 # Plot the confusion matrix.
-disp.plot(cmap=plt.cm.Blues)
+disp.plot(cmap='Blues')
 plt.title('Confusion Matrix with Sentiment Names')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')

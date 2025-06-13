@@ -98,7 +98,7 @@ def create_model_pipeline(model_type: str):
             "is_finetuned": True
         },
         "gemma-3-finetuned": {
-            "path": "./roboreviews-gemma-finetuned",
+            "path": "./roboreviews-gemma-simple",
             "base_model": "google/gemma-3-1b-it",
             "template": lambda prompt: (
                 f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
@@ -170,18 +170,14 @@ def _load_model(config, model_kwargs, use_mps):
             raise ImportError("peft package not found. Install with: pip install peft")
 
         base_model_path = config["base_model"]
-        
         # Handle Gemma-3 models specifically
         if config.get("model_class") == "gemma3":
             if Gemma3ForCausalLM is None:
                 raise ImportError("Gemma3ForCausalLM not available. Please update transformers.")
-            
             # Set MPS environment for Gemma-3 stability
             if use_mps:
-                import os
                 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
                 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-            
             base_model = Gemma3ForCausalLM.from_pretrained(
                 base_model_path, **model_kwargs)
         else:
@@ -197,12 +193,10 @@ def _load_model(config, model_kwargs, use_mps):
     if config.get("model_class") == "gemma3":
         if Gemma3ForCausalLM is None:
             raise ImportError("Gemma3ForCausalLM not available. Please update transformers.")
-        
+
         if use_mps:
-            import os
             os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
             os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-        
         model = Gemma3ForCausalLM.from_pretrained(
             config["path"], **model_kwargs)
     else:
@@ -247,14 +241,17 @@ def _prepare_pipeline_kwargs(config, model, tokenizer, model_type, use_mps):
             tokenizer.pad_token = tokenizer.eos_token
         pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
         pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
-        
+
         # Different settings for fine-tuned vs base models
         if model_type.lower() == "gemma-3-finetuned":
-            pipe_kwargs["repetition_penalty"] = 1.05  # Lower for fine-tuned
-            pipe_kwargs["max_new_tokens"] = 400
+            # Moderate to balance content length and quality
+            pipe_kwargs["repetition_penalty"] = 1.15
+            # Increased for more comprehensive content
+            pipe_kwargs["max_new_tokens"] = 500
+            # Prevent repetitive phrases
+            pipe_kwargs["no_repeat_ngram_size"] = 3
         else:
             pipe_kwargs["repetition_penalty"] = 1.1
-        
         # Conservative settings for MPS stability
         if use_mps:
             pipe_kwargs["device"] = "mps"
@@ -278,11 +275,9 @@ def generate_text(pipe_or_model, template_fn, extract_key: str,
                 raise ValueError(f"Unsupported API provider: {provider}")
         else:
             formatted_prompt = template_fn(prompt)
-            
             # Special handling for Gemma-3 models on MPS
-            if (model_config and model_config.get("model_class") == "gemma3" and 
-                torch.backends.mps.is_available()):
-                
+            if (model_config and model_config.get("model_class") == "gemma3" and
+                    torch.backends.mps.is_available()):
                 # Use conservative settings for all Gemma-3 models on MPS
                 # Fine-tuned models will rely on their learned patterns with greedy decoding
                 generation_kwargs = {
@@ -293,12 +288,10 @@ def generate_text(pipe_or_model, template_fn, extract_key: str,
                     "repetition_penalty": 1.05 if model_config.get("is_finetuned") else 1.1,
                     "return_full_text": True,
                 }
-                
                 result = pipe_or_model(formatted_prompt, **generation_kwargs)
             else:
                 # Standard generation for other models
                 result = pipe_or_model(formatted_prompt)
-            
             generated_text = result[0]["generated_text"]
 
             if extract_key in generated_text:
@@ -316,8 +309,9 @@ def generate_text(pipe_or_model, template_fn, extract_key: str,
 
 
 def clean_recommendation_text(text: str) -> str:
-    """Minimal cleaning of LLM output - only remove obvious conversational prefixes"""
-    # Only remove obvious conversational prefixes that interfere with markdown
+    """Enhanced cleaning of LLM output to remove conversational prefixes and training artifacts"""
+    
+    # Remove obvious conversational prefixes
     conversational_patterns = [
         r"^Okay,?\s*here'?s?\s*",
         r"^Here'?s?\s*",
@@ -325,8 +319,35 @@ def clean_recommendation_text(text: str) -> str:
 
     for pattern in conversational_patterns:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+    # Remove training artifacts and garbage text patterns (more targeted)
+    artifact_patterns = [
+        r'\n\n+user\b.*$',              # Remove "user" conversations
+        r'\n\n+[a-z]+\n\n+user.*$',    # Remove name+user patterns like "atman\nuser"
+        r'<start_of_turn>.*$',         # Remove turn markers
+        r'<end_of_turn>.*$',           # Remove turn markers
+        r'\n\n+###\s*\*\*Beyond.*$',   # Remove incomplete sections starting with "Beyond"
+        r'[\u4e00-\u9fff]+.*$',        # Remove Chinese characters and everything after
+        r'[\u0900-\u097f]+.*$',        # Remove Hindi/Devanagari and everything after
+        r'[\u0980-\u09ff]+.*$',        # Remove Bengali and everything after
+        r'[\u0b80-\u0bff]+.*$',        # Remove Tamil and everything after
+        r'[\u10a0-\u10ff]+.*$',        # Remove Georgian and everything after
+        r'[\u0400-\u04ff]+.*$',        # Remove Cyrillic characters and everything after
+        r'<unused\d+>.*$',             # Remove unused tokens
+        r'[\ud800-\udfff]+.*$',        # Remove Unicode surrogates/garbage
+        r'[🐂🗕📝🎯⚡️💡🔥]+.*$',       # Remove specific emoji garbage
+        r'\s+[🐂🗕📝🎯⚡️💡🔥]+.*$',   # Remove emoji garbage with whitespace
+        r'\n\n\n+.*$',                # Remove trailing content after triple newlines
+        r'[\ud800-\udfff].*$',         # More specific Unicode surrogate removal
+        r'\n\n+How would you approach.*$',  # Remove training questions
+        r'\n\n+abhishek.*$',           # Remove specific training artifacts
+        r'\n\n+atman.*$',              # Remove specific training artifacts
+        r'\s+всему.*$',                # Remove specific Cyrillic artifacts
+    ]
+    for pattern in artifact_patterns:
+        text = re.sub(pattern, "", text, flags=re.MULTILINE | re.DOTALL)
 
     return text.strip()
+
 
 def create_gemini_pipeline():
     """Create Gemini API pipeline"""

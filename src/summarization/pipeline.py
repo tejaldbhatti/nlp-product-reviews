@@ -183,8 +183,7 @@ class SummarizationPipeline:
 
         return warning_quotes
 
-    def run_pipeline(self, sentiment_csv: str,
-                     _category_csv: str) -> Dict[str, Dict]:
+    def run_pipeline(self, sentiment_csv: str) -> Dict[str, Dict]:
         """Run the complete pipeline with AI content generation"""
 
         # Load cluster data using new approach
