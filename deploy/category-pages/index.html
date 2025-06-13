@@ -245,94 +245,43 @@
             });
 
             async function detectAvailableModels() {
-                const modelsDir = "outputs/";
-                try {
-                    const response = await fetch(modelsDir);
-                    if (!response.ok) {
-                        throw new Error(
-                            `HTTP error! status: ${response.status}`,
-                        );
-                    }
-                    const text = await response.text();
-                    const parser = new DOMParser();
-                    const htmlDoc = parser.parseFromString(text, "text/html");
-                    const links = htmlDoc.querySelectorAll("a");
-
-                    const modelDirs = Array.from(links)
-                        .map((link) => link.getAttribute("href"))
-                        .filter(
-                            (href) =>
-                                href &&
-                                href.endsWith("/") &&
-                                href !== "../" &&
-                                href !== "./",
-                        )
-                        .map((href) => href.replace(/\//g, "")); // Remove trailing slash
-
-                    // Populate modelConfigs with detected directories in the desired order
-                    const desiredOrder = ["gemma-2b", "mistral", "qwen", "qwen-finetuned", "gemini-pro-flash"];
-                    const detectedModels = modelDirs.map((dir) => ({
-                        name: dir.replace(/_/g, "-"),
-                        path: dir,
-                    }));
-                    
-                    // Sort by desired order, then add any additional models found
-                    modelConfigs = [];
-                    for (const modelName of desiredOrder) {
-                        const found = detectedModels.find(m => m.name === modelName);
-                        if (found) {
-                            modelConfigs.push(found);
-                        }
-                    }
-                    // Add any models not in the desired order list
-                    for (const model of detectedModels) {
-                        if (!desiredOrder.includes(model.name)) {
-                            modelConfigs.push(model);
-                        }
-                    }
-
-                    populateModelSelector();
-                    loadSelectedModel(); // Load default or saved model data on page load
-                } catch (e) {
-                    // Fallback to hardcoded models if directory listing fails (e.g., due to CORS or local file system)
-                    modelConfigs = [
-                        { name: "gemma-2b", path: "gemma-2b" },
-                        { name: "mistral", path: "mistral" },
-                        { name: "qwen", path: "qwen" },
-                        { name: "qwen-finetuned", path: "qwen-finetuned" },
-                        { name: "gemini-pro-flash", path: "gemini-pro-flash" },
-                    ];
-                    populateModelSelector();
-                    loadSelectedModel();
-                }
+                // Use static model list for GitHub Pages compatibility
+                modelConfigs = [
+                    { name: "gemma-2b", path: "gemma-2b" },
+                    { name: "mistral", path: "mistral" },
+                    { name: "qwen", path: "qwen" },
+                    { name: "qwen-finetuned", path: "qwen-finetuned" },
+                    { name: "gemini-pro-flash", path: "gemini-pro-flash" },
+                ];
+                populateModelSelector();
+                loadSelectedModel();
             }
 
             async function detectModelFiles(modelPath) {
-                const path = `outputs/${modelPath}/`;
-                try {
-                    const response = await fetch(path);
-                    if (!response.ok) {
-                        throw new Error(
-                            `HTTP error! status: ${response.status}`,
-                        );
+                // Use static file list for GitHub Pages compatibility
+                const expectedFiles = [
+                    'e-readers_&_kindle_devices_data.json',
+                    'fire_tablets_&_echo_speakers_data.json',
+                    'kindle_cases_&_covers_data.json',
+                    'charging_&_accessories_data.json',
+                    'fire_tv_&_streaming_devices_data.json',
+                    'pipeline_stats.json'
+                ];
+
+                // Test which files actually exist
+                const existingFiles = [];
+                for (const file of expectedFiles) {
+                    try {
+                        const response = await fetch(`outputs/${modelPath}/${file}`);
+                        if (response.ok) {
+                            existingFiles.push(file);
+                        }
+                    } catch (e) {
+                        // File doesn't exist, skip it
                     }
-                    const text = await response.text();
-                    const parser = new DOMParser();
-                    const htmlDoc = parser.parseFromString(text, "text/html");
-                    const links = htmlDoc.querySelectorAll("a");
-
-                    const jsonFiles = Array.from(links)
-                        .map((link) => link.getAttribute("href"))
-                        .filter(
-                            (href) =>
-                                (href && href.endsWith("_data.json")) ||
-                                href.endsWith("pipeline_stats.json"),
-                        );
-
-                    return jsonFiles;
-                } catch (e) {
-                    return [];
                 }
+                
+                return existingFiles;
             }
 
             function populateModelSelector() {
