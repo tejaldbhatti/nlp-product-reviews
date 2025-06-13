@@ -124,9 +124,27 @@ The deployment is configured via GitHub Actions YAML files and updates automatic
 
 ### Training Fine-Tuned Models
 
-The project includes fine-tuned models optimized for product recommendations. The training process follows these steps:
+The project includes fine-tuned models optimized for product recommendations using an organized, modular training framework.
 
-#### 1. Prepare Training Data
+#### 1. Fine-tuning with the New Framework
+
+The project now uses a structured fine-tuning system located in `src/finetuning/`:
+
+```bash
+# Basic fine-tuning with default settings
+python finetune_gemma.py
+
+# Custom training parameters
+python finetune_gemma.py --epochs 5 --lr 1e-4 --batch-size 2
+
+# Custom output directory
+python finetune_gemma.py --output ./my-custom-gemma-model
+
+# Test existing model without training
+python finetune_gemma.py --test-only --output ./roboreviews-gemma-simple
+```
+
+#### 2. Training Data
 
 Training data should be in JSON format with instruction-response pairs:
 ```json
@@ -141,7 +159,7 @@ Training data should be in JSON format with instruction-response pairs:
 
 The project includes 173 high-quality training examples in `data/synthetic/fine_tuning_prompt_response.json`.
 
-#### 2. Training Configuration
+#### 3. Training Configuration
 
 Fine-tuning uses LoRA (Low-Rank Adaptation) for efficient training:
 - **Model**: google/gemma-3-1b-it (instruction-tuned base)
@@ -149,24 +167,28 @@ Fine-tuning uses LoRA (Low-Rank Adaptation) for efficient training:
 - **Training**: 3 epochs, batch size 1, learning rate 2e-4
 - **Hardware**: Optimized for Apple Silicon MPS
 
-#### 3. Training Process
+#### 4. Modular Training Architecture
 
-The training approach evolved through multiple iterations:
-1. **Initial approach**: Complex training module with label masking
-2. **Final approach**: Simplified training following successful patterns from other models
+The new training system is organized into focused modules:
+- `src/finetuning/config.py`: Training configurations and hyperparameters
+- `src/finetuning/trainer.py`: Core training logic and MPS optimizations
+- `src/finetuning/data.py`: Dataset classes and data loading
+- `src/finetuning/utils.py`: Helper functions (model loading, validation, etc.)
 
-Key technical decisions:
-- Use instruction-tuned base model (google/gemma-3-1b-it)
-- Train on entire sequence to learn conversation flow
-- Conservative generation settings for MPS stability
-- Higher LoRA rank (r=16) and alpha (32) for better adaptation
-
-#### 4. Model Integration
+#### 5. Model Integration
 
 Fine-tuned models are automatically integrated into the pipeline:
 - Models saved as PEFT adapters (~26MB vs 2GB full model)
 - Seamless switching between base and fine-tuned models
 - Specialized generation parameters for optimal output
+
+#### 6. Legacy Training Script
+
+For compatibility, the original training script is still available:
+```bash
+python scripts/train_gemma_simple.py
+```
+However, we recommend using the new organized framework with `finetune_gemma.py` for better maintainability and flexibility.
 
 ### Understanding the Results
 
@@ -187,19 +209,31 @@ Generated buying guides include:
 │   └── category-pages/     # Generated web interface
 ├── notebooks/              # Jupyter notebooks for analysis
 ├── results/               # Output files from processing
-├── roboreviews-gemma-simple/    # Fine-tuned Gemma model
-├── roboreviews-qwen-finetuned/  # Fine-tuned Qwen model
 ├── src/
+│   ├── finetuning/             # Organized fine-tuning framework
+│   │   ├── __init__.py        # Module interface
+│   │   ├── config.py          # Training configurations
+│   │   ├── trainer.py         # Core training logic
+│   │   ├── data.py            # Dataset handling
+│   │   └── utils.py           # Helper functions
 │   ├── clustering_model.py      # Product clustering implementation
 │   ├── sentiment_analysis_model.py  # Sentiment classification model
 │   └── summarization/          # Core pipeline code
-├── run_pipeline.py        # Main entry point
+├── finetune_gemma.py      # Main fine-tuning entry point
+├── run_pipeline.py        # Main pipeline entry point
 └── requirements.txt       # Dependencies
+└── robo-reviews.pdf       # Project presentation
 ```
 
 ## Key Files
 
+- `finetune_gemma.py`: Main script for fine-tuning Gemma models
 - `run_pipeline.py`: Main script for running the recommendation pipeline
+- `src/finetuning/`: Organized fine-tuning framework
+  - `config.py`: Training configurations and hyperparameters
+  - `trainer.py`: Core training logic and MPS optimizations
+  - `data.py`: Dataset classes and data loading utilities
+  - `utils.py`: Helper functions for model loading and testing
 - `src/summarization/pipeline.py`: Core pipeline logic
 - `src/summarization/models.py`: Model configurations and interfaces
 - `src/clustering_model.py`: Product clustering implementation
@@ -207,6 +241,7 @@ Generated buying guides include:
 - `results/sentiment_results.csv`: Sentiment analysis results
 - `results/aggregated_reviews_cluster.csv`: Clustered product data
 - `deploy/category-pages/index.html`: Web interface for viewing results
+- `robo-reviews.pdf`: Project presentation slides
 
 ## Technical Details
 

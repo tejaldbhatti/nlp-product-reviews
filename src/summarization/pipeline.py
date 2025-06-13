@@ -50,13 +50,14 @@ class SummarizationPipeline:
         cluster_df = self.deduplicate_products(cluster_df)
 
         if 'kmeans_cluster' in cluster_df.columns and 'meta_category' not in cluster_df.columns:
-            cluster_df['meta_category'] = cluster_df['kmeans_cluster'].map({
+            cluster_mapping = {
                 0: 'Fire TV & Streaming Devices',
                 1: 'Charging & Accessories',
                 2: 'Kindle Cases & Covers',
                 3: 'Fire Tablets & Echo Speakers',
                 4: 'E-Readers & Kindle Devices'
-            })
+            }
+            cluster_df['meta_category'] = cluster_df['kmeans_cluster'].map(cluster_mapping)
 
         return cluster_df
 
@@ -130,7 +131,7 @@ class SummarizationPipeline:
         negative_reviews = product_reviews[
             (product_reviews['predicted_sentiment_SVC'] == 'negative') &
             ((product_reviews['rating'] <= 3.0) |
-             (product_reviews['rating'].isna()))
+             (pd.isna(product_reviews['rating'])))
         ]
 
         positive_quotes = self._extract_positive_quotes(positive_reviews)
@@ -332,10 +333,7 @@ class SummarizationPipeline:
                             float(product['avg_rating'])
                             if not pd.isna(product['avg_rating']) else 3.0),
                         'review_count': product['review_count'],
-                        'why_avoid': (
-                            "Lower customer satisfaction: "
-                            f"{float(product['avg_rating']) if not pd.isna(product['avg_rating']) else 3.0:.1f}"
-                            "/5 rating"),
+                        'why_avoid': self._format_avoid_reason(product['avg_rating']),
                         'warning_quotes': product_quotes['warning_quotes']
                     })
 
@@ -513,41 +511,41 @@ class SummarizationPipeline:
     def generate_comprehensive_review(self, category: str, insights: Dict) -> Dict:
         """Generate review content in manageable chunks for small LLMs"""
         review_sections = {}
+        category_context = self._get_category_context(category)
 
         # Section 1: Opening hook (small prompt)
-        opening_prompt = f"""Write 2-3 sentences introducing {category} based on these \
-customer feedback trends. Do not include phrases like "Okay" or "Here is". \
-Start directly with the content.
-
-POSITIVE: {insights['positive_examples']}
-NEGATIVE: {insights['negative_examples']}
-
-Write like a tech blogger setting the scene for readers."""
+        opening_prompt = (f"Write 2-3 sentences introducing {category} ONLY. "
+                         f"Focus exclusively on {category.lower()}. {category_context}\n\n"
+                         f"POSITIVE: {insights['positive_examples']}\n"
+                         f"NEGATIVE: {insights['negative_examples']}\n\n"
+                         f"Write like a tech blogger about {category} specifically. "
+                         f"Do not mention other product categories.")
         review_sections['opening'] = self.generate_single_prompt(opening_prompt)
 
         # Section 2: Strengths analysis (focused prompt)
-        strengths_prompt = f"""Based on positive customer feedback: \
-{insights['positive_examples']}
-
-Write one paragraph explaining what's working well in {category}. \
-Mention specific benefits customers report. Be conversational and specific. \
-Do not start with "Okay" or similar phrases."""
+        strengths_prompt = (f"Write about {category} strengths ONLY. {category_context}\n\n"
+                           f"Based on positive customer feedback for {category}: "
+                           f"{insights['positive_examples']}\n\n"
+                           f"Write one paragraph explaining what's working well in "
+                           f"{category} specifically. Mention specific {category.lower()} "
+                           f"benefits customers report. Stay focused on {category.lower()} only.")
         review_sections['strengths'] = self.generate_single_prompt(strengths_prompt)
 
         # Section 3: Concerns analysis (focused prompt)
-        concerns_prompt = f"""Based on negative customer feedback: \
-{insights['negative_examples']}
-
-Write one paragraph about the main problems customers face with {category}. \
-Be specific about issues and write like you're warning readers. \
-Do not start with "Okay" or similar phrases."""
+        concerns_prompt = (f"Write about {category} concerns ONLY. {category_context}\n\n"
+                          f"Based on negative customer feedback for {category}: "
+                          f"{insights['negative_examples']}\n\n"
+                          f"Write one paragraph about problems customers face with "
+                          f"{category} specifically. Focus on {category.lower()} issues only. "
+                          f"Do not mention other product types.")
         review_sections['concerns'] = self.generate_single_prompt(concerns_prompt)
 
         # Section 4: Final recommendation (synthesis prompt)
-        recommendation_prompt = f"""For {category}, considering both the positives and \
-negatives from customer reviews, write 2-3 sentences advising who should buy and \
-who should avoid these products. Be direct and helpful. \
-Do not start with "Okay" or similar phrases."""
+        recommendation_prompt = (f"Write recommendations for {category} buyers ONLY. "
+                                f"{category_context}\n\n"
+                                f"Considering customer reviews of {category}, write 2-3 sentences "
+                                f"advising who should buy {category.lower()} and who should avoid them. "
+                                f"Focus exclusively on {category} - do not mention other product categories.")
         review_sections['recommendation'] = self.generate_single_prompt(recommendation_prompt)
 
         return review_sections
@@ -555,35 +553,54 @@ Do not start with "Okay" or similar phrases."""
     def generate_unified_review(self, category: str, insights: Dict) -> str:
         """Generate comprehensive review content in single prompt for larger models"""
 
-        unified_prompt = f"""Based on customer feedback analysis, write a comprehensive \
-review in this exact structure. Do not include any introductory phrases like \
-"Okay, here is..." or "Based on the data provided...". Start directly with the content.
+        # Category-specific context to prevent bleeding
+        category_context = self._get_category_context(category)
 
-**Customer Data:**
-POSITIVE: {insights['positive_examples']}
-NEGATIVE: {insights['negative_examples']}
-TOP PRODUCTS: {insights.get('top_product_names', 'Various models')}
-AVOID PRODUCTS: {insights.get('avoid_product_names', 'Lower-rated options')}
-
-**Write the review following this structure:**
-
-### **The {category} Landscape: A Comprehensive Look at Customer Feedback**
-[2-3 sentences setting the scene based on the data]
-
-#### **What's Working Really Well:**
-[Paragraph highlighting 3-4 key strengths from positive feedback, mentioning specific products]
-
-#### **The Red Flags to Watch:**
-[Paragraph covering 2-3 main concerns from negative feedback, being specific about issues]
-
-#### **My Recommendation:**
-[Final paragraph with balanced advice on who should buy and who should avoid]
-
-Write in a conversational, authoritative tone like a tech blogger. \
-Use specific details from the customer data provided. \
-Start directly with the header, no preamble."""
+        unified_prompt = (f"You are a tech expert writing ONLY about {category}. "
+                         f"Do not mention any other product categories.\n\n"
+                         f"**IMPORTANT**: Focus exclusively on {category}. {category_context}\n"
+                         f"\n**Customer Data for {category}:**\n"
+                         f"POSITIVE: {insights['positive_examples']}\n"
+                         f"NEGATIVE: {insights['negative_examples']}\n"
+                         f"TOP PRODUCTS: {insights.get('top_product_names', 'Various models')}\n"
+                         f"AVOID PRODUCTS: {insights.get('avoid_product_names', 'Lower-rated options')}\n"
+                         f"\n**Write a review following this exact structure:**\n"
+                         f"\n### **The {category} Landscape: A Comprehensive Look at Customer Feedback**\n"
+                         f"[2-3 sentences about {category} specifically, based on the data]\n"
+                         f"\n#### **What's Working Really Well:**\n"
+                         f"[Paragraph about {category} strengths from positive feedback, "
+                         f"mentioning specific {category.lower()} products only]\n"
+                         f"\n#### **The Red Flags to Watch:**\n"
+                         f"[Paragraph about {category} concerns from negative feedback, "
+                         f"staying focused on {category.lower()} issues only]\n"
+                         f"\n#### **My Recommendation:**\n"
+                         f"[Final paragraph with advice specific to {category} buyers]\n"
+                         f"\nCRITICAL: Write only about {category}. Do not reference other "
+                         f"product types like tablets, smartphones, laptops, or other categories. "
+                         f"Stay focused on {category.lower()} throughout.")
 
         return self.generate_single_prompt(unified_prompt)
+
+    def _format_avoid_reason(self, avg_rating):
+        """Format the avoid reason with proper rating display"""
+        rating = float(avg_rating) if not pd.isna(avg_rating) else 3.0
+        return f"Lower customer satisfaction: {rating:.1f}/5 rating"
+
+    def _get_category_context(self, category: str) -> str:
+        """Get category-specific context to prevent content bleeding"""
+        contexts = {
+            "Fire TV & Streaming Devices": ("These are streaming devices and media players, "
+                                          "not tablets or e-readers."),
+            "E-Readers & Kindle Devices": ("These are dedicated reading devices with e-ink screens, "
+                                         "not tablets or smartphones."),
+            "Kindle Cases & Covers": ("These are protective accessories for e-readers and tablets, "
+                                    "not the devices themselves."),
+            "Fire Tablets & Echo Speakers": ("These include tablets for media/apps and smart speakers "
+                                           "with Alexa, not streaming devices."),
+            "Charging & Accessories": ("These are power adapters, cables, and charging accessories, "
+                                     "not the devices they charge.")
+        }
+        return contexts.get(category, f"These are {category.lower()} products specifically.")
 
     def assemble_reviewer_content(self, sections: Dict, category: str) -> str:
         """Assemble sections into cohesive reviewer-style content"""

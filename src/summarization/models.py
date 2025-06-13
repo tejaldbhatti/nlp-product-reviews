@@ -12,10 +12,10 @@ import torch
 from dotenv import load_dotenv
 from transformers import (
     AutoTokenizer,
-    AutoModelForCausalLM,
-    BitsAndBytesConfig,
-    pipeline
+    AutoModelForCausalLM
 )
+from transformers.utils.quantization_config import BitsAndBytesConfig
+from transformers.pipelines import pipeline
 
 try:
     from transformers import Gemma3ForCausalLM
@@ -29,8 +29,11 @@ except ImportError:
 
 try:
     import google.generativeai as genai
+    from google.generativeai import configure, GenerativeModel
 except ImportError:
     genai = None
+    configure = None
+    GenerativeModel = None
 
 
 
@@ -104,7 +107,7 @@ def create_model_pipeline(model_type: str):
                 f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
             ),
             "extract_key": "<start_of_turn>model",
-            "max_tokens": 400,
+            "max_tokens": 600,  # Increased to prevent cutoffs
             "quantization": False,
             "is_finetuned": True,
             "model_class": "gemma3"  # Special flag for Gemma-3 handling
@@ -223,44 +226,79 @@ def _prepare_pipeline_kwargs(config, model, tokenizer, model_type, use_mps):
         "no_repeat_ngram_size": 3
     }
 
-    if model_type.lower() == "gemma-2b":
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-        pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
-        pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
-        pipe_kwargs["repetition_penalty"] = 1.15
-    elif model_type.lower() in ["qwen", "qwen-finetuned"]:
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-        pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
-        pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
-        if use_mps:
-            pipe_kwargs["device"] = "mps"
-    elif model_type.lower() in ["gemma-3", "gemma-3-finetuned"]:
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-        pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
-        pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
+    model_type_lower = model_type.lower()
 
-        # Different settings for fine-tuned vs base models
-        if model_type.lower() == "gemma-3-finetuned":
-            # Moderate to balance content length and quality
-            pipe_kwargs["repetition_penalty"] = 1.15
-            # Increased for more comprehensive content
-            pipe_kwargs["max_new_tokens"] = 500
-            # Prevent repetitive phrases
-            pipe_kwargs["no_repeat_ngram_size"] = 3
-        else:
-            pipe_kwargs["repetition_penalty"] = 1.1
-        # Conservative settings for MPS stability
-        if use_mps:
-            pipe_kwargs["device"] = "mps"
-            pipe_kwargs["do_sample"] = False  # Use greedy decoding for stability
-            pipe_kwargs["temperature"] = None  # Disable sampling parameters
-            pipe_kwargs["top_p"] = None
-            pipe_kwargs["top_k"] = None
+    if model_type_lower == "gemma-2b":
+        _configure_gemma_2b(pipe_kwargs, tokenizer)
+    elif model_type_lower in ["qwen", "qwen-finetuned"]:
+        _configure_qwen(pipe_kwargs, tokenizer, use_mps)
+    elif model_type_lower in ["gemma-3", "gemma-3-finetuned"]:
+        _configure_gemma_3(pipe_kwargs, tokenizer, model_type_lower, use_mps)
 
     return pipe_kwargs
+
+
+def _configure_gemma_2b(pipe_kwargs, tokenizer):
+    """Configure pipeline kwargs for Gemma 2B"""
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
+    pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
+    pipe_kwargs["repetition_penalty"] = 1.15
+
+
+def _configure_qwen(pipe_kwargs, tokenizer, use_mps):
+    """Configure pipeline kwargs for Qwen models"""
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
+    pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
+    if use_mps:
+        pipe_kwargs["device"] = "mps"
+
+
+def _configure_gemma_3(pipe_kwargs, tokenizer, model_type_lower, use_mps):
+    """Configure pipeline kwargs for Gemma 3 models"""
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    pipe_kwargs["pad_token_id"] = tokenizer.eos_token_id
+    pipe_kwargs["eos_token_id"] = tokenizer.eos_token_id
+
+    # Different settings for fine-tuned vs base models
+    if model_type_lower == "gemma-3-finetuned":
+        _configure_finetuned_gemma_3(pipe_kwargs, tokenizer)
+    else:
+        pipe_kwargs["repetition_penalty"] = 1.1
+
+    # Conservative settings for MPS stability
+    if use_mps:
+        pipe_kwargs["device"] = "mps"
+        pipe_kwargs["do_sample"] = False  # Use greedy decoding for stability
+        pipe_kwargs["temperature"] = None  # Disable sampling parameters
+        pipe_kwargs["top_p"] = None
+        pipe_kwargs["top_k"] = None
+
+
+def _configure_finetuned_gemma_3(pipe_kwargs, tokenizer):
+    """Configure pipeline kwargs specifically for fine-tuned Gemma 3"""
+    # Optimized settings for fine-tuned model
+    pipe_kwargs["temperature"] = 0.7  # Lower for more focused output
+    pipe_kwargs["repetition_penalty"] = 1.1  # Reduced to allow natural repetition
+    pipe_kwargs["top_p"] = 0.9  # Slightly higher for better quality
+    pipe_kwargs["max_new_tokens"] = 600  # Increased to prevent cutoffs
+
+    # Add EOS tokens to prevent content bleeding
+    if hasattr(tokenizer, 'convert_tokens_to_ids'):
+        try:
+            end_turn_id = tokenizer.convert_tokens_to_ids("<end_of_turn>")
+            if end_turn_id != tokenizer.unk_token_id:
+                pipe_kwargs["eos_token_id"] = [tokenizer.eos_token_id, end_turn_id]
+        except (AttributeError, KeyError, ValueError):
+            pass  # Fall back to default EOS token
+
+    pipe_kwargs["max_new_tokens"] = 500
+    # Prevent repetitive phrases
+    pipe_kwargs["no_repeat_ngram_size"] = 3
 
 
 def generate_text(pipe_or_model, template_fn, extract_key: str,
@@ -281,11 +319,11 @@ def generate_text(pipe_or_model, template_fn, extract_key: str,
                 # Use conservative settings for all Gemma-3 models on MPS
                 # Fine-tuned models will rely on their learned patterns with greedy decoding
                 generation_kwargs = {
-                    "max_new_tokens": model_config.get("max_tokens", 400),
+                    "max_new_tokens": model_config.get("max_tokens", 400) if model_config else 400,
                     "do_sample": False,  # Greedy decoding for MPS stability
                     "pad_token_id": pipe_or_model.tokenizer.eos_token_id,
                     "eos_token_id": pipe_or_model.tokenizer.eos_token_id,
-                    "repetition_penalty": 1.05 if model_config.get("is_finetuned") else 1.1,
+                    "repetition_penalty": 1.05 if (model_config and model_config.get("is_finetuned")) else 1.1,
                     "return_full_text": True,
                 }
                 result = pipe_or_model(formatted_prompt, **generation_kwargs)
@@ -310,7 +348,7 @@ def generate_text(pipe_or_model, template_fn, extract_key: str,
 
 def clean_recommendation_text(text: str) -> str:
     """Enhanced cleaning of LLM output to remove conversational prefixes and training artifacts"""
-    
+
     # Remove obvious conversational prefixes
     conversational_patterns = [
         r"^Okay,?\s*here'?s?\s*",
@@ -361,10 +399,14 @@ def create_gemini_pipeline():
         raise ValueError("GOOGLE_API_KEY environment variable not found")
 
     # Configure the API
-    genai.configure(api_key=api_key)
+    if configure is None:
+        raise ImportError("google.generativeai not available")
+    configure(api_key=api_key)
 
     # Create the model
-    model = genai.GenerativeModel('gemini-2.5-flash-preview-04-17')
+    if GenerativeModel is None:
+        raise ImportError("google.generativeai not available")
+    model = GenerativeModel('gemini-2.5-flash-preview-04-17')
 
     # Return model and config
     config = {

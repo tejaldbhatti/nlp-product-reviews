@@ -4,7 +4,7 @@ Run this after the sentiment and category CSV files are ready.
 
 Usage:
     python run_pipeline.py <model_name>
-    
+
 Available models:
     - gemma-2b: Google Gemma 2B (fast, general purpose)
     - gemma-3: Google Gemma 3-1B instruct (efficient, MPS optimized)
@@ -48,7 +48,7 @@ AVAILABLE_MODELS = {
         "requirements": "HuggingFace token"
     },
     "qwen": {
-        "name": "Qwen 7B", 
+        "name": "Qwen 7B",
         "description": "High quality base model (7B parameters)",
         "requirements": "HuggingFace token"
     },
@@ -161,15 +161,15 @@ Examples:
   python run_pipeline.py qwen-finetuned
         """
     )
-    
+
     parser.add_argument(
-        "model", 
+        "model",
         nargs='?',  # Optional positional argument
         choices=list(AVAILABLE_MODELS.keys()),
         help="Model to use for text generation"
     )
     parser.add_argument(
-        "--list-models", 
+        "--list-models",
         action="store_true",
         help="List all available models and exit"
     )
@@ -214,7 +214,7 @@ def main():
     print(f"Using model: {model_type}")
     # Check input files
     sentiment_csv = args.sentiment_csv
-    
+
     if not os.path.exists(sentiment_csv):
         print(f"Error: Sentiment CSV not found: {sentiment_csv}")
         sys.exit(1)
@@ -225,7 +225,7 @@ def main():
         print(f"Initializing {model_type} pipeline...")
         pipeline = SummarizationPipeline(model_type=model_type)
         print("Pipeline initialized successfully")
-    except Exception as e:
+    except (ImportError, ValueError, RuntimeError) as e:
         print(f"Error: Failed to initialize pipeline: {e}")
         sys.exit(1)
 
@@ -233,7 +233,7 @@ def main():
     try:
         print(f"Running pipeline with {model_type}...")
         results = pipeline.run_pipeline(sentiment_csv)
-        
+
         print("\n=== RESULTS ===")
         print(f"Generated {len(results['category_articles'])} category guides")
 
@@ -264,7 +264,7 @@ def main():
         print("\nMake sure your teammate has provided the CSV file.")
         sys.exit(1)
 
-    except Exception as e:
+    except (RuntimeError, ValueError, KeyError) as e:
         print(f"Error: Pipeline failed: {e}")
         traceback.print_exc()
         sys.exit(1)

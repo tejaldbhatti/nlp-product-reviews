@@ -1,4 +1,5 @@
-data
+data/1429_1.csv
+data/processed
 .env
 results
 fine_tuned_models
@@ -13,3 +14,6 @@ roboreviews-qwen-finetuned
 __pycache__
 roboreviews-gemma-finetuned
 roboreviews-gemma-simple
+roboreviews-gemma-simple-recreated
+my-custom-gemma-model
+roboreviews-gemma-simple-new
